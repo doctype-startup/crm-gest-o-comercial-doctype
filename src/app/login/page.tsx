@@ -18,14 +18,9 @@ export default async function LoginPage() {
       <div className={styles.blueGlow} aria-hidden="true" />
       <div className={styles.orangeGlowBottom} aria-hidden="true" />
 
-      <section className={styles.brand} aria-label="DOCTYPE OS Gestão Interna">
+      <section className={styles.brand} aria-label="DOC.OS Gestão Interna">
         <div className={styles.brandInner}>
-          <div className={styles.brandLockup} aria-label="DOCTYPE">
-            <div className={styles.markCrop} aria-hidden="true">
-              <Image className={styles.markSource} src="/assets/doctype-logo-official.png" alt="" width={291} height={81} priority unoptimized />
-            </div>
-            <span className={styles.wordmark}>DOCTYPE</span>
-          </div>
+          <div className={styles.appName} aria-label="DOC.OS">DOC<span>.</span>OS</div>
 
           <div className={styles.managementRow}>
             <span />
@@ -37,6 +32,11 @@ export default async function LoginPage() {
             <span>PROCESSOS</span><i />
             <span>PERFORMANCE</span><i />
             <span>RESULTADOS</span>
+          </div>
+
+          <div className={styles.poweredBy} aria-label="Produto DOCTYPE">
+            <span>UM PRODUTO</span>
+            <Image src="/assets/doctype-logo-official.png" alt="DOCTYPE" width={291} height={81} priority unoptimized />
           </div>
         </div>
       </section>
@@ -55,7 +55,7 @@ export default async function LoginPage() {
       <footer className={styles.footer}>
         <span><ShieldCheck size={16} /> Sistema seguro</span>
         <i />
-        <span>DOCTYPE OS</span>
+        <span>DOC.OS</span>
         <i />
         <span>Todos os direitos reservados</span>
       </footer>
