@@ -21,25 +21,23 @@ function createDatabase() {
   }
 
   if (engine === "postgres") {
-    const isSupabasePooler = /\.pooler\.supabase\.com(?::\d+)?\//i.test(url);
-    const sslRequired = url.includes("sslmode=require");
+    const parsed = new URL(url);
+    const isSupabasePooler = /\.pooler\.supabase\.com$/i.test(parsed.hostname);
+    const sslRequired = parsed.searchParams.get("sslmode") === "require" || parsed.searchParams.get("sslmode") === "verify-full" || parsed.searchParams.get("sslmode") === "verify-ca";
     const rejectUnauthorized = isSupabasePooler
       ? false
       : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false";
 
-    let connectionString = url;
-    if (isSupabasePooler) {
-      const parsed = new URL(url);
-      parsed.searchParams.delete("sslmode");
-      connectionString = parsed.toString();
-    }
-
     return new Kysely<Database>({
       dialect: new PostgresDialect({
         pool: new Pool({
-          connectionString,
+          host: parsed.hostname,
+          port: parsed.port ? Number(parsed.port) : 5432,
+          user: decodeURIComponent(parsed.username),
+          password: decodeURIComponent(parsed.password),
+          database: decodeURIComponent(parsed.pathname.replace(/^\//, "") || "postgres"),
           max: 10,
-          ssl: sslRequired ? { rejectUnauthorized } : undefined,
+          ssl: sslRequired || isSupabasePooler ? { rejectUnauthorized } : undefined,
         }),
       }),
     });
