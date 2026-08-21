@@ -3,6 +3,9 @@ import Image from "next/image";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "@/components/login-form";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function LoginPage() {
   if (await getSession()) redirect("/os");
   return (
