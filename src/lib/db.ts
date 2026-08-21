@@ -27,10 +27,17 @@ function createDatabase() {
       ? false
       : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false";
 
+    let connectionString = url;
+    if (isSupabasePooler) {
+      const parsed = new URL(url);
+      parsed.searchParams.delete("sslmode");
+      connectionString = parsed.toString();
+    }
+
     return new Kysely<Database>({
       dialect: new PostgresDialect({
         pool: new Pool({
-          connectionString: url,
+          connectionString,
           max: 10,
           ssl: sslRequired ? { rejectUnauthorized } : undefined,
         }),
