@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import { ShieldCheck } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { LoginForm } from "@/components/login-form";
@@ -35,11 +34,6 @@ export default async function LoginPage() {
             <span>RESULTADOS</span>
           </div>
         </div>
-
-        <div className={styles.doctypeSignature} aria-label="DOCTYPE">
-          <small>BY</small>
-          <Image src="/assets/doctype-logo-official.png" alt="DOCTYPE" width={291} height={81} priority unoptimized />
-        </div>
       </section>
 
       <section className={styles.loginArea}>
@@ -50,6 +44,10 @@ export default async function LoginPage() {
             <p>Digite suas credenciais para continuar</p>
           </div>
           <LoginForm />
+          <div className={styles.productSignature} aria-label="Um produto DOCTYPE">
+            <span>UM PRODUTO</span>
+            <strong>DOCTYPE</strong>
+          </div>
         </div>
       </section>
 
