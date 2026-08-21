@@ -44,17 +44,13 @@ export default async function LoginPage() {
             <p>Digite suas credenciais para continuar</p>
           </div>
           <LoginForm />
-          <div className={styles.productSignature} aria-label="Um produto DOCTYPE">
-            <span>UM PRODUTO</span>
-            <strong>DOCTYPE</strong>
-          </div>
         </div>
       </section>
 
       <footer className={styles.footer}>
         <span><ShieldCheck size={16} /> Sistema seguro</span>
         <i />
-        <span>DOC.OS</span>
+        <span>UM PRODUTO DOCTYPE</span>
         <i />
         <span>Todos os direitos reservados</span>
       </footer>
