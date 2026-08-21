@@ -20,11 +20,12 @@ export default async function LoginPage() {
 
       <section className={styles.brand} aria-label="DOC.OS Gestão Interna">
         <div className={styles.brandInner}>
-          <div className={styles.appName} aria-label="DOC.OS">DOC<span>.</span>OS</div>
+          <div className={styles.appName} aria-label="DOC.OS"><span>DOC</span><b>.</b><span>OS</span></div>
+          <div className={styles.appCaption}>GESTÃO INTERNA</div>
 
-          <div className={styles.managementRow}>
+          <div className={styles.managementRow} aria-hidden="true">
             <span />
-            <strong>GESTÃO INTERNA</strong>
+            <i />
             <span />
           </div>
 
@@ -33,11 +34,11 @@ export default async function LoginPage() {
             <span>PERFORMANCE</span><i />
             <span>RESULTADOS</span>
           </div>
+        </div>
 
-          <div className={styles.poweredBy} aria-label="Produto DOCTYPE">
-            <span>UM PRODUTO</span>
-            <Image src="/assets/doctype-logo-official.png" alt="DOCTYPE" width={291} height={81} priority unoptimized />
-          </div>
+        <div className={styles.doctypeSignature} aria-label="DOCTYPE">
+          <small>BY</small>
+          <Image src="/assets/doctype-logo-official.png" alt="DOCTYPE" width={291} height={81} priority unoptimized />
         </div>
       </section>
 
