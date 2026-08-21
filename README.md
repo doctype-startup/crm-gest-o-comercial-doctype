@@ -2,6 +2,8 @@
 
 Versão de produção do sistema operacional interno da DOCTYPE. O projeto substitui o MVP em `localStorage` por uma aplicação multiusuário com autenticação, banco compartilhado, permissões, auditoria e persistência real.
 
+> Deploy de produção configurado para Vercel com preset Next.js.
+
 ## O que está implementado
 
 - Dashboard executivo: MRR, clientes ativos, valores a receber, inadimplência, tarefas e alertas.
