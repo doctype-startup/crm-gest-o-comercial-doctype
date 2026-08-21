@@ -21,9 +21,19 @@ function createDatabase() {
   }
 
   if (engine === "postgres") {
+    const isSupabasePooler = /\.pooler\.supabase\.com(?::\d+)?\//i.test(url);
+    const sslRequired = url.includes("sslmode=require");
+    const rejectUnauthorized = isSupabasePooler
+      ? false
+      : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false";
+
     return new Kysely<Database>({
       dialect: new PostgresDialect({
-        pool: new Pool({ connectionString: url, max: 10, ssl: url.includes("sslmode=require") ? { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false" } : undefined }),
+        pool: new Pool({
+          connectionString: url,
+          max: 10,
+          ssl: sslRequired ? { rejectUnauthorized } : undefined,
+        }),
       }),
     });
   }
