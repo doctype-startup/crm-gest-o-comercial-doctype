@@ -41,7 +41,8 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
 
   return <>
     <button className="doc-fab" aria-label="Abrir DOC Monitor" onClick={() => setOpen(true)}>
-      <span className="doc-fab-img"><Image src="/assets/doc-mascote.svg" alt="DOC Monitor" width={56} height={56} /></span>
+      <span className="doc-fab-ring" aria-hidden="true" />
+      <span className="doc-fab-img"><Image src="/assets/guardiao-monitor.webp" alt="DOC Monitor" width={94} height={72} priority /></span>
       {attention > 0 && <b>{Math.min(attention, 99)}</b>}
     </button>
 
@@ -53,7 +54,7 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
       </header>
 
       <section className="doc-hero-panel">
-        <Image src="/assets/doc-mascote.svg" alt="Guardião DOCTYPE" width={128} height={128} />
+        <Image className="doc-hero-guardiao" src="/assets/guardiao-monitor.webp" alt="Guardião DOCTYPE" width={156} height={120} priority />
         <div className="doc-speech"><strong>Olá, {firstName}!</strong><p>Estou acompanhando a saúde financeira e operacional em tempo real.</p></div>
       </section>
 
@@ -65,7 +66,7 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
       </div>
 
       <section className="doc-tip">
-        <div className="doc-tip-icon"><Image src="/assets/doc-mascote.svg" alt="Dica do Guardião" width={42} height={42} /></div>
+        <div className="doc-tip-icon"><Image src="/assets/guardiao-monitor.webp" alt="Dica do Guardião" width={56} height={44} /></div>
         <div><strong>Dica do Guardião</strong><p>{data.result < 0 ? "As despesas pagas estão acima das receitas recebidas. Revise o Financeiro." : data.lateTasks ? `Existem ${data.lateTasks} tarefas vencidas. Priorize o que bloqueia a operação.` : data.renewals ? `Há ${data.renewals} renovações próximas. Antecipe contatos e decisões.` : "A operação não tem exceções urgentes agora. Continue acompanhando os indicadores."}</p></div>
       </section>
 
