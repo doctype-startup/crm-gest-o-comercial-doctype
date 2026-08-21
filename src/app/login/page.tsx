@@ -21,7 +21,7 @@ export default async function LoginPage() {
       <section className={styles.brand} aria-label="DOCTYPE OS Gestão Interna">
         <div className={styles.brandInner}>
           <div className={styles.logoWrap}>
-            <Image className={styles.logo} src="/assets/doctype-logo.svg" alt="DOCTYPE" width={580} height={151} priority />
+            <Image className={styles.logo} src="/assets/doctype-logo-official.png" alt="DOCTYPE" width={291} height={81} priority unoptimized />
           </div>
 
           <div className={styles.managementRow}>
