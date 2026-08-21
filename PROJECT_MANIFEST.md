@@ -1,22 +1,22 @@
-# DOCTYPE OS — Manifesto do projeto
+# DOCTYPE OS — Manifesto técnico
 
 ## Aplicação
-O repositório é a fonte de código do DOCTYPE OS interno.
 
-## Arquivos do MVP
-- `index.html` — shell da aplicação
-- `app.css` — identidade visual e responsividade
-- `app.js` — regras de negócio, CRUD, dashboard, persistência, backup e DOC Monitor
-- `assets/doctype-logo.png` — ativo visual DOCTYPE
-- `assets/doc-mascote.png` — mascote DOC
-- `README.md` — instruções e escopo
-- `CODEX_PROMPT.md` — briefing completo para o Codex
+Sistema interno da DOCTYPE em Next.js 16, React 19, TypeScript, Kysely e PostgreSQL. SQLite existe somente para desenvolvimento e testes.
 
-## Validação exigida
-- `node --check app.js`
-- self-test em `index.html?selftest=1`
-- teste E2E das jornadas principais antes de produção
-- não alegar E2E aprovado sem execução real
+## Estrutura principal
 
-## Regra de produto
-Uso exclusivamente interno da DOCTYPE. Não implementar funil comercial, leads, propostas ou follow-up.
+- `src/app/` — páginas, autenticação e APIs.
+- `src/components/` — interface DOCTYPE OS e jornadas interativas.
+- `src/lib/` — banco, autenticação, RBAC, validação, registros, auditoria e DOC Monitor.
+- `assets/` — logo DOCTYPE e mascote DOC originais.
+- `tests/` — regras, banco, interface e E2E desktop/mobile.
+- `scripts/` — seed, smoke HTTP e preparação do navegador de CI.
+
+## Regras preservadas
+
+- Uso exclusivamente interno.
+- Sem CRM comercial, funil, propostas ou follow-up.
+- Nenhuma senha de cliente é armazenada.
+- Todos os dados são persistidos no banco compartilhado e isolados por organização.
+- Todos os botões visíveis possuem comportamento funcional e são cobertos por testes de interface ou E2E.

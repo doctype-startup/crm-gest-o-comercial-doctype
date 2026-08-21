@@ -1,0 +1,135 @@
+import DatabaseDriver from "better-sqlite3";
+import { mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { Kysely, PostgresDialect, SqliteDialect, sql } from "kysely";
+import { Pool } from "pg";
+import type { Database } from "./types";
+
+type GlobalDb = typeof globalThis & {
+  __doctypeDb?: Kysely<Database>;
+  __doctypeSchemaReady?: Promise<void>;
+};
+
+const globalDb = globalThis as GlobalDb;
+
+function createDatabase() {
+  const url = process.env.DATABASE_URL || "sqlite:./.data/doctype-os.db";
+  const engine = process.env.DATABASE_ENGINE || (url.startsWith("postgres") ? "postgres" : "sqlite");
+
+  if (process.env.NODE_ENV === "production" && engine === "sqlite" && process.env.ALLOW_SQLITE_IN_PRODUCTION !== "true") {
+    throw new Error("Produção exige DATABASE_ENGINE=postgres e DATABASE_URL PostgreSQL.");
+  }
+
+  if (engine === "postgres") {
+    return new Kysely<Database>({
+      dialect: new PostgresDialect({
+        pool: new Pool({ connectionString: url, max: 10, ssl: url.includes("sslmode=require") ? { rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== "false" } : undefined }),
+      }),
+    });
+  }
+
+  const filename = url.replace(/^sqlite:/, "");
+  mkdirSync(dirname(resolve(filename)), { recursive: true });
+  return new Kysely<Database>({
+    dialect: new SqliteDialect({ database: new DatabaseDriver(filename) }),
+  });
+}
+
+export const db = globalDb.__doctypeDb ?? createDatabase();
+if (process.env.NODE_ENV !== "production") globalDb.__doctypeDb = db;
+
+async function createSchema() {
+  await db.schema
+    .createTable("organizations")
+    .ifNotExists()
+    .addColumn("id", "varchar(36)", (c) => c.primaryKey())
+    .addColumn("name", "varchar(200)", (c) => c.notNull())
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createTable("users")
+    .ifNotExists()
+    .addColumn("id", "varchar(36)", (c) => c.primaryKey())
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("name", "varchar(200)", (c) => c.notNull())
+    .addColumn("email", "varchar(200)", (c) => c.notNull().unique())
+    .addColumn("password_hash", "text", (c) => c.notNull())
+    .addColumn("role", "varchar(30)", (c) => c.notNull())
+    .addColumn("active", "integer", (c) => c.notNull().defaultTo(1))
+    .addColumn("must_change_password", "integer", (c) => c.notNull().defaultTo(1))
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createTable("sessions")
+    .ifNotExists()
+    .addColumn("id", "varchar(36)", (c) => c.primaryKey())
+    .addColumn("user_id", "varchar(36)", (c) => c.notNull().references("users.id").onDelete("cascade"))
+    .addColumn("token_hash", "varchar(64)", (c) => c.notNull().unique())
+    .addColumn("expires_at", "varchar(40)", (c) => c.notNull())
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createTable("records")
+    .ifNotExists()
+    .addColumn("id", "varchar(36)", (c) => c.primaryKey())
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("module", "varchar(30)", (c) => c.notNull())
+    .addColumn("data", "text", (c) => c.notNull())
+    .addColumn("created_by", "varchar(36)", (c) => c.notNull().references("users.id"))
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex("records_org_module")
+    .ifNotExists()
+    .on("records")
+    .columns(["org_id", "module"])
+    .execute();
+
+  await db.schema
+    .createTable("audit_logs")
+    .ifNotExists()
+    .addColumn("id", "integer", (c) => c.primaryKey().autoIncrement())
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull())
+    .addColumn("user_id", "varchar(36)", (c) => c.notNull())
+    .addColumn("action", "varchar(60)", (c) => c.notNull())
+    .addColumn("entity", "varchar(60)", (c) => c.notNull())
+    .addColumn("entity_id", "varchar(36)")
+    .addColumn("metadata", "text", (c) => c.notNull())
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createTable("settings")
+    .ifNotExists()
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull())
+    .addColumn("key", "varchar(100)", (c) => c.notNull())
+    .addColumn("value", "text", (c) => c.notNull())
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .addPrimaryKeyConstraint("settings_pk", ["org_id", "key"])
+    .execute();
+
+  await sql`delete from sessions where expires_at < ${new Date().toISOString()}`.execute(db);
+}
+
+export async function ensureSchema() {
+  globalDb.__doctypeSchemaReady ??= createSchema();
+  await globalDb.__doctypeSchemaReady;
+}
+
+export async function audit(orgId: string, userId: string, action: string, entity: string, entityId: string | null, metadata: unknown = {}) {
+  await db.insertInto("audit_logs").values({
+    org_id: orgId,
+    user_id: userId,
+    action,
+    entity,
+    entity_id: entityId,
+    metadata: JSON.stringify(metadata),
+    created_at: new Date().toISOString(),
+  }).execute();
+}
