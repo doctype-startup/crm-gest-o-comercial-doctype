@@ -12,9 +12,14 @@ type GlobalDb = typeof globalThis & {
 
 const globalDb = globalThis as GlobalDb;
 
+function databaseEngine() {
+  const url = process.env.DATABASE_URL || "sqlite:./.data/doctype-os.db";
+  return process.env.DATABASE_ENGINE || (url.startsWith("postgres") ? "postgres" : "sqlite");
+}
+
 function createDatabase() {
   const url = process.env.DATABASE_URL || "sqlite:./.data/doctype-os.db";
-  const engine = process.env.DATABASE_ENGINE || (url.startsWith("postgres") ? "postgres" : "sqlite");
+  const engine = databaseEngine();
 
   if (process.env.NODE_ENV === "production" && engine === "sqlite" && process.env.ALLOW_SQLITE_IN_PRODUCTION !== "true") {
     throw new Error("Produção exige DATABASE_ENGINE=postgres e DATABASE_URL PostgreSQL.");
@@ -106,18 +111,33 @@ async function createSchema() {
     .columns(["org_id", "module"])
     .execute();
 
-  await db.schema
-    .createTable("audit_logs")
-    .ifNotExists()
-    .addColumn("id", "integer", (c) => c.primaryKey().autoIncrement())
-    .addColumn("org_id", "varchar(36)", (c) => c.notNull())
-    .addColumn("user_id", "varchar(36)", (c) => c.notNull())
-    .addColumn("action", "varchar(60)", (c) => c.notNull())
-    .addColumn("entity", "varchar(60)", (c) => c.notNull())
-    .addColumn("entity_id", "varchar(36)")
-    .addColumn("metadata", "text", (c) => c.notNull())
-    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
-    .execute();
+  if (databaseEngine() === "postgres") {
+    await sql`
+      create table if not exists audit_logs (
+        id bigserial primary key,
+        org_id varchar(36) not null,
+        user_id varchar(36) not null,
+        action varchar(60) not null,
+        entity varchar(60) not null,
+        entity_id varchar(36),
+        metadata text not null,
+        created_at varchar(40) not null
+      )
+    `.execute(db);
+  } else {
+    await db.schema
+      .createTable("audit_logs")
+      .ifNotExists()
+      .addColumn("id", "integer", (c) => c.primaryKey().autoIncrement())
+      .addColumn("org_id", "varchar(36)", (c) => c.notNull())
+      .addColumn("user_id", "varchar(36)", (c) => c.notNull())
+      .addColumn("action", "varchar(60)", (c) => c.notNull())
+      .addColumn("entity", "varchar(60)", (c) => c.notNull())
+      .addColumn("entity_id", "varchar(36)")
+      .addColumn("metadata", "text", (c) => c.notNull())
+      .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+      .execute();
+  }
 
   await db.schema
     .createTable("settings")
