@@ -20,8 +20,11 @@ export default async function LoginPage() {
 
       <section className={styles.brand} aria-label="DOCTYPE OS Gestão Interna">
         <div className={styles.brandInner}>
-          <div className={styles.logoWrap}>
-            <Image className={styles.logo} src="/assets/doctype-logo-official.png" alt="DOCTYPE" width={291} height={81} priority unoptimized />
+          <div className={styles.brandLockup} aria-label="DOCTYPE">
+            <div className={styles.markCrop} aria-hidden="true">
+              <Image className={styles.markSource} src="/assets/doctype-logo-official.png" alt="" width={291} height={81} priority unoptimized />
+            </div>
+            <span className={styles.wordmark}>DOCTYPE</span>
           </div>
 
           <div className={styles.managementRow}>
@@ -36,8 +39,6 @@ export default async function LoginPage() {
             <span>RESULTADOS</span>
           </div>
         </div>
-
-        <div className={styles.watermark} aria-hidden="true">D</div>
       </section>
 
       <section className={styles.loginArea}>
