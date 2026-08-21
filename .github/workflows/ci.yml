@@ -1,0 +1,43 @@
+name: DOCTYPE OS CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          DATABASE_URL: sqlite:./.data/ci-build.db
+          DATABASE_ENGINE: sqlite
+          ALLOW_SQLITE_IN_PRODUCTION: "true"
+          SEED_ADMIN_EMAIL: ci@doctype.local
+          SEED_ADMIN_PASSWORD: DoctypeCI@2026
+
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [chromium, mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e -- --project=${{ matrix.project }}
+        env:
+          TMPDIR: /tmp/doctype-browser
+          XDG_CACHE_HOME: /tmp/doctype-browser/cache
