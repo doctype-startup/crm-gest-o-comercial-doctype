@@ -1,0 +1,39 @@
+/* Guardião visível no card DOC MONITOR da Visão Geral.
+   Mantém a figurinha oficial já armazenada no projeto e posiciona o personagem
+   exatamente na área circular laranja do card, sem alterar a marca. */
+.doc-card{position:relative!important;overflow:hidden!important;isolation:isolate}
+.doc-card>img{
+  content:url('/assets/guardiao-monitor.webp')!important;
+  position:absolute!important;
+  right:-2px!important;
+  bottom:-4px!important;
+  left:auto!important;
+  top:auto!important;
+  width:118px!important;
+  height:118px!important;
+  max-width:none!important;
+  max-height:none!important;
+  object-fit:contain!important;
+  object-position:center bottom!important;
+  z-index:5!important;
+  opacity:1!important;
+  visibility:visible!important;
+  display:block!important;
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  filter:drop-shadow(0 10px 14px rgba(0,0,0,.38))!important;
+  pointer-events:none!important;
+}
+.doc-card .doc-copy{position:relative!important;z-index:6!important;padding-right:0}
+.doc-card:not(.large) .alert-list{padding-right:0}
+.doc-card:not(.large) .alert-list button{position:relative;z-index:7}
+.doc-card.large>img{width:190px!important;height:190px!important;right:4px!important;bottom:-8px!important}
+@media(max-width:1180px){
+  .doc-card:not(.large)>img{width:108px!important;height:108px!important}
+}
+@media(max-width:700px){
+  .doc-card:not(.large)>img{width:94px!important;height:94px!important;right:-4px!important;bottom:-3px!important}
+}
