@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Download, FileSignature, FileText, Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import type { AppRecord, ModuleKey, SessionUser } from "@/lib/types";
+import type { AppRecord, RecordModuleKey, SessionUser } from "@/lib/types";
 
 type StatePayload = { records: AppRecord[]; user: SessionUser };
 type CommercialView = "products" | "quotes" | "contracts";
@@ -45,8 +45,8 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
 
   useEffect(() => {
     const find = () => setNavTarget(document.querySelector(".sidebar nav"));
-    find();
     const observer = new MutationObserver(find);
+    find();
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, []);
@@ -67,15 +67,21 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     return () => document.removeEventListener("click", intercept, true);
   }, []);
 
-  useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(""), 2800); return () => clearTimeout(timer); }, [toast]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 2800);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   async function remove(record: AppRecord) {
-    if (!confirm("Excluir este registro?")) return;
+    if (!window.confirm("Excluir este registro?")) return;
     try {
       await api(`/api/records/${record.id}?module=${record.module}`, { method: "DELETE" });
       setToast("Registro excluído.");
       await refresh();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Erro ao excluir."); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro ao excluir.");
+    }
   }
 
   const nav = navTarget ? createPortal(<>
@@ -84,11 +90,9 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     <button className={view === "contracts" ? "active" : ""} onClick={() => { setView("contracts"); setSearch(""); }}><FileSignature size={18} /><span>Contratos</span></button>
   </>, navTarget) : null;
 
-  const filtered = useMemo(() => {
-    const source = view === "products" ? products : view === "quotes" ? quotes : contracts;
-    const term = search.toLowerCase();
-    return source.filter((record) => JSON.stringify(record.data).toLowerCase().includes(term));
-  }, [view, products, quotes, contracts, search]);
+  const source = view === "products" ? products : view === "quotes" ? quotes : contracts;
+  const term = search.trim().toLowerCase();
+  const filtered = term ? source.filter((record) => JSON.stringify(record.data).toLowerCase().includes(term)) : source;
 
   return <>
     {nav}
@@ -97,15 +101,17 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
         <div><span>GESTÃO COMERCIAL</span><h1>{view === "products" ? "Produtos" : view === "quotes" ? "Orçamentos" : "Contratos"}</h1><p>{view === "products" ? "Catálogo, preço, custo, recorrência e margem." : view === "quotes" ? "Propostas vinculadas a clientes e produtos." : "Contratos assinados e documentos dos clientes."}</p></div>
         <div className="commercial-actions"><button className="ghost" onClick={() => setView(null)}><X size={17} /> Fechar</button><button className="primary" onClick={() => setModal({ module: view })}><Plus size={17} /> {view === "products" ? "Produto" : view === "quotes" ? "Orçamento" : "Contrato"}</button></div>
       </header>
+
       <div className="commercial-kpis">
         {view === "products" && <><MiniKpi label="Produtos ativos" value={String(products.filter((r) => r.data.status === "Ativo").length)} /><MiniKpi label="Categorias" value={String(new Set(products.map((r) => text(r.data.category)).filter(Boolean)).size)} /><MiniKpi label="Ticket médio" value={money(products.length ? products.reduce((s, r) => s + Number(r.data.price || 0), 0) / products.length : 0)} /></>}
         {view === "quotes" && <><MiniKpi label="Orçamentos" value={String(quotes.length)} /><MiniKpi label="Aprovados" value={String(quotes.filter((r) => r.data.status === "Aprovado").length)} /><MiniKpi label="Valor aprovado" value={money(quotes.filter((r) => r.data.status === "Aprovado").reduce((s, r) => s + Number(r.data.total || 0), 0))} /></>}
         {view === "contracts" && <><MiniKpi label="Contratos" value={String(contracts.length)} /><MiniKpi label="Assinados" value={String(contracts.filter((r) => r.data.status === "Assinado").length)} /><MiniKpi label="Valor contratado" value={money(contracts.filter((r) => r.data.status === "Assinado").reduce((s, r) => s + Number(r.data.value || 0), 0))} /></>}
       </div>
+
       <label className="commercial-search"><Search size={18} /><input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} /></label>
       {error && <div className="commercial-error">{error}</div>}
       <div className="commercial-table"><table><thead><tr>{view === "products" ? <><th>Produto</th><th>SKU</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Margem</th><th>Cobrança</th><th>Status</th></> : view === "quotes" ? <><th>Nº</th><th>Cliente</th><th>Produtos</th><th>Total</th><th>Validade</th><th>Status</th></> : <><th>Nº</th><th>Cliente</th><th>Produtos</th><th>Valor</th><th>Vigência</th><th>Documento</th><th>Status</th></>}<th>Ações</th></tr></thead><tbody>
-        {filtered.map((record) => <tr key={record.id}>{view === "products" ? <><td><strong>{text(record.data.name)}</strong><small>{text(record.data.description)}</small></td><td>{text(record.data.sku) || "—"}</td><td>{text(record.data.category) || "—"}</td><td>{money(record.data.price)}</td><td>{money(record.data.cost)}</td><td>{Number(record.data.price || 0) ? `${Math.round(((Number(record.data.price || 0) - Number(record.data.cost || 0)) / Number(record.data.price || 1)) * 100)}%` : "—"}</td><td>{text(record.data.billingType)}</td><td><Status value={text(record.data.status)} /></td></> : view === "quotes" ? <><td>{text(record.data.number)}</td><td>{clientName(record.data.clientId)}</td><td>{productNames(record.data.productIds)}</td><td>{money(record.data.total)}</td><td>{text(record.data.validUntil) || "—"}</td><td><Status value={text(record.data.status)} /></td></> : <><td>{text(record.data.number)}</td><td>{clientName(record.data.clientId)}</td><td>{productNames(record.data.productIds)}</td><td>{money(record.data.value)}</td><td>{text(record.data.startDate) || "—"}{record.data.endDate ? ` → ${text(record.data.endDate)}` : ""}</td><td>{record.data.fileDataUrl ? <a className="contract-download" href={text(record.data.fileDataUrl)} download={text(record.data.fileName) || "contrato.pdf"}><Download size={14} /> {text(record.data.fileName) || "Baixar"}</a> : "—"}</td><td><Status value={text(record.data.status)} /></td></>}<td><div className="commercial-row-actions"><button onClick={() => setModal({ module: view, record })}><Pencil size={15} /></button><button className="danger" onClick={() => remove(record)}><Trash2 size={15} /></button></div></td></tr>)}
+        {filtered.map((record) => <tr key={record.id}>{view === "products" ? <><td><strong>{text(record.data.name)}</strong><small>{text(record.data.description)}</small></td><td>{text(record.data.sku) || "—"}</td><td>{text(record.data.category) || "—"}</td><td>{money(record.data.price)}</td><td>{money(record.data.cost)}</td><td>{Number(record.data.price || 0) ? `${Math.round(((Number(record.data.price || 0) - Number(record.data.cost || 0)) / Number(record.data.price || 1)) * 100)}%` : "—"}</td><td>{text(record.data.billingType)}</td><td><Status value={text(record.data.status)} /></td></> : view === "quotes" ? <><td>{text(record.data.number)}</td><td>{clientName(record.data.clientId)}</td><td>{productNames(record.data.productIds)}</td><td>{money(record.data.total)}</td><td>{text(record.data.validUntil) || "—"}</td><td><Status value={text(record.data.status)} /></td></> : <><td>{text(record.data.number)}</td><td>{clientName(record.data.clientId)}</td><td>{productNames(record.data.productIds)}</td><td>{money(record.data.value)}</td><td>{text(record.data.startDate) || "—"}{record.data.endDate ? ` → ${text(record.data.endDate)}` : ""}</td><td>{record.data.fileDataUrl ? <a className="contract-download" href={text(record.data.fileDataUrl)} download={text(record.data.fileName) || "contrato.pdf"}><Download size={14} /> {text(record.data.fileName) || "Baixar"}</a> : "—"}</td><td><Status value={text(record.data.status)} /></td></>}<td><div className="commercial-row-actions"><button aria-label="Editar" onClick={() => setModal({ module: view, record })}><Pencil size={15} /></button><button aria-label="Excluir" className="danger" onClick={() => remove(record)}><Trash2 size={15} /></button></div></td></tr>)}
         {!filtered.length && <tr><td colSpan={9} className="commercial-empty">Nenhum registro encontrado.</td></tr>}
       </tbody></table></div>
     </div>}
@@ -135,39 +141,43 @@ function CommercialModal({ modal, clients, products, quotes, close, saved }: { m
   const toggleProduct = (id: string) => setData((current) => ({ ...current, productIds: arr(current.productIds).includes(id) ? arr(current.productIds).filter((x) => x !== id) : [...arr(current.productIds), id] }));
   const selectedProducts = products.filter((p) => arr(data.productIds).includes(p.id));
   const productsSubtotal = selectedProducts.reduce((sum, p) => sum + Number(p.data.price || 0), 0);
-
-  useEffect(() => {
-    if (modal.module !== "quotes") return;
-    const subtotal = productsSubtotal;
-    const discount = Number(data.discount || 0);
-    const total = Math.max(0, subtotal - discount);
-    setData((current) => current.subtotal === subtotal && current.total === total ? current : { ...current, subtotal, total });
-  }, [productsSubtotal, data.discount, modal.module]);
+  const quoteTotal = Math.max(0, productsSubtotal - Number(data.discount || 0));
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError("");
+    e.preventDefault();
+    setBusy(true);
+    setError("");
     try {
-      const module: ModuleKey = modal.module === "client" ? "clients" : modal.module;
-      await api(record ? `/api/records/${record.id}` : "/api/records", { method: record ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ module, data }) });
+      const moduleKey: RecordModuleKey = modal.module === "client" ? "clients" : modal.module;
+      const payloadData = modal.module === "quotes" ? { ...data, subtotal: productsSubtotal, total: quoteTotal } : data;
+      await api(record ? `/api/records/${record.id}` : "/api/records", {
+        method: record ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ module: moduleKey, data: payloadData }),
+      });
       await saved();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Erro ao salvar."); setBusy(false); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro ao salvar.");
+      setBusy(false);
+    }
   }
 
-  async function attach(file?: File) {
+  function attach(file?: File) {
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) return setError("O contrato deve ter no máximo 3 MB.");
-    if (file.type !== "application/pdf" && !file.type.startsWith("image/")) return setError("Use PDF ou imagem para o contrato.");
+    if (file.size > 3 * 1024 * 1024) { setError("O contrato deve ter no máximo 3 MB."); return; }
+    if (file.type !== "application/pdf" && !file.type.startsWith("image/")) { setError("Use PDF ou imagem para o contrato."); return; }
     const reader = new FileReader();
     reader.onload = () => setData((current) => ({ ...current, fileName: file.name, fileDataUrl: String(reader.result || "") }));
+    reader.onerror = () => setError("Não foi possível ler o arquivo selecionado.");
     reader.readAsDataURL(file);
   }
 
   const title = modal.module === "client" ? "Novo cliente" : `${record ? "Editar" : "Novo"} ${modal.module === "products" ? "produto" : modal.module === "quotes" ? "orçamento" : "contrato"}`;
-  return <div className="commercial-modal-backdrop commercial-suite"><div className="commercial-modal"><div className="commercial-modal-head"><div><span>DOC.OS</span><h2>{title}</h2></div><button onClick={close}><X /></button></div><form onSubmit={submit}><div className="commercial-form">
+  return <div className="commercial-modal-backdrop commercial-suite"><div className="commercial-modal"><div className="commercial-modal-head"><div><span>DOC.OS</span><h2>{title}</h2></div><button aria-label="Fechar" onClick={close}><X /></button></div><form onSubmit={submit}><div className="commercial-form">
     {modal.module === "client" && <><Field label="Nome do cliente *" value={data.name} set={(v) => setData({ ...data, name: v })} required /><Field label="CPF/CNPJ" value={data.document} set={(v) => setData({ ...data, document: v })} /><Field label="Contato principal" value={data.contact} set={(v) => setData({ ...data, contact: v })} /><Field label="Serviços contratados" value={data.services} set={(v) => setData({ ...data, services: v })} /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Mensalidade" type="number" value={data.monthly} set={(v) => setData({ ...data, monthly: Number(v) })} /><Field label="Dia do vencimento" type="number" value={data.dueDay} set={(v) => setData({ ...data, dueDay: Number(v) })} /><Field label="Início" type="date" value={data.startDate} set={(v) => setData({ ...data, startDate: v })} /><Field label="Renovação" type="date" value={data.renewal} set={(v) => setData({ ...data, renewal: v })} /><Field label="Responsável DOCTYPE" value={data.responsible} set={(v) => setData({ ...data, responsible: v })} /><SelectField label="Saúde" value={data.health} options={["Saudável", "Atenção", "Risco"]} set={(v) => setData({ ...data, health: v })} /><SelectField label="Status" value={data.status} options={["Ativo", "Pausado", "Encerrado"]} set={(v) => setData({ ...data, status: v })} /><Area label="Observações" value={data.observations} set={(v) => setData({ ...data, observations: v })} /></>}
     {modal.module === "products" && <><Field label="Nome do produto *" value={data.name} set={(v) => setData({ ...data, name: v })} required /><Field label="SKU / Código" value={data.sku} set={(v) => setData({ ...data, sku: v })} /><Field label="Categoria" value={data.category} set={(v) => setData({ ...data, category: v })} /><Field label="Preço de venda" type="number" value={data.price} set={(v) => setData({ ...data, price: Number(v) })} /><Field label="Custo" type="number" value={data.cost} set={(v) => setData({ ...data, cost: Number(v) })} /><SelectField label="Unidade" value={data.unit} options={["unidade", "serviço", "hora", "mês", "projeto"]} set={(v) => setData({ ...data, unit: v })} /><SelectField label="Cobrança" value={data.billingType} options={["Único", "Mensal", "Trimestral", "Semestral", "Anual"]} set={(v) => setData({ ...data, billingType: v })} /><SelectField label="Status" value={data.status} options={["Ativo", "Inativo"]} set={(v) => setData({ ...data, status: v })} /><Area label="Descrição" value={data.description} set={(v) => setData({ ...data, description: v })} /><Area label="Observações internas" value={data.notes} set={(v) => setData({ ...data, notes: v })} /></>}
-    {modal.module === "quotes" && <><Field label="Número *" value={data.number} set={(v) => setData({ ...data, number: v })} required /><ClientSelect clients={clients} value={data.clientId} set={(v) => setData({ ...data, clientId: v })} /><Field label="Título do orçamento *" value={data.title} set={(v) => setData({ ...data, title: v })} required /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Subtotal" type="number" value={data.subtotal} set={() => {}} disabled /><Field label="Desconto (R$)" type="number" value={data.discount} set={(v) => setData({ ...data, discount: Number(v) })} /><Field label="Total" type="number" value={data.total} set={() => {}} disabled /><Field label="Válido até" type="date" value={data.validUntil} set={(v) => setData({ ...data, validUntil: v })} /><SelectField label="Status" value={data.status} options={["Rascunho", "Enviado", "Aprovado", "Recusado", "Expirado"]} set={(v) => setData({ ...data, status: v })} /><Area label="Condições / observações" value={data.notes} set={(v) => setData({ ...data, notes: v })} /></>}
-    {modal.module === "contracts" && <><Field label="Número *" value={data.number} set={(v) => setData({ ...data, number: v })} required /><ClientSelect clients={clients} value={data.clientId} set={(v) => setData({ ...data, clientId: v })} /><label><span>Orçamento relacionado</span><select value={text(data.quoteId)} onChange={(e) => setData({ ...data, quoteId: e.target.value })}><option value="">Sem vínculo</option>{quotes.map((q) => <option key={q.id} value={q.id}>{text(q.data.number)} — {text(q.data.title)}</option>)}</select></label><Field label="Título do contrato *" value={data.title} set={(v) => setData({ ...data, title: v })} required /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Valor do contrato" type="number" value={data.value} set={(v) => setData({ ...data, value: Number(v) })} /><Field label="Início" type="date" value={data.startDate} set={(v) => setData({ ...data, startDate: v })} /><Field label="Fim / renovação" type="date" value={data.endDate} set={(v) => setData({ ...data, endDate: v })} /><Field label="Data da assinatura" type="date" value={data.signedAt} set={(v) => setData({ ...data, signedAt: v })} /><SelectField label="Status" value={data.status} options={["Rascunho", "Enviado", "Assinado", "Vencido", "Cancelado"]} set={(v) => setData({ ...data, status: v })} /><label className="commercial-file"><span>Contrato assinado (PDF ou imagem, até 3 MB)</span><input type="file" accept="application/pdf,image/*" onChange={(e) => void attach(e.target.files?.[0])} />{data.fileName && <small>Arquivo atual: {text(data.fileName)}</small>}</label><Area label="Observações" value={data.observations} set={(v) => setData({ ...data, observations: v })} /></>}
+    {modal.module === "quotes" && <><Field label="Número *" value={data.number} set={(v) => setData({ ...data, number: v })} required /><ClientSelect clients={clients} value={data.clientId} set={(v) => setData({ ...data, clientId: v })} /><Field label="Título do orçamento *" value={data.title} set={(v) => setData({ ...data, title: v })} required /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Subtotal" type="number" value={productsSubtotal} set={() => undefined} disabled /><Field label="Desconto (R$)" type="number" value={data.discount} set={(v) => setData({ ...data, discount: Number(v) })} /><Field label="Total" type="number" value={quoteTotal} set={() => undefined} disabled /><Field label="Válido até" type="date" value={data.validUntil} set={(v) => setData({ ...data, validUntil: v })} /><SelectField label="Status" value={data.status} options={["Rascunho", "Enviado", "Aprovado", "Recusado", "Expirado"]} set={(v) => setData({ ...data, status: v })} /><Area label="Condições / observações" value={data.notes} set={(v) => setData({ ...data, notes: v })} /></>}
+    {modal.module === "contracts" && <><Field label="Número *" value={data.number} set={(v) => setData({ ...data, number: v })} required /><ClientSelect clients={clients} value={data.clientId} set={(v) => setData({ ...data, clientId: v })} /><label><span>Orçamento relacionado</span><select value={text(data.quoteId)} onChange={(e) => setData({ ...data, quoteId: e.target.value })}><option value="">Sem vínculo</option>{quotes.map((q) => <option key={q.id} value={q.id}>{text(q.data.number)} — {text(q.data.title)}</option>)}</select></label><Field label="Título do contrato *" value={data.title} set={(v) => setData({ ...data, title: v })} required /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Valor do contrato" type="number" value={data.value} set={(v) => setData({ ...data, value: Number(v) })} /><Field label="Início" type="date" value={data.startDate} set={(v) => setData({ ...data, startDate: v })} /><Field label="Fim / renovação" type="date" value={data.endDate} set={(v) => setData({ ...data, endDate: v })} /><Field label="Data da assinatura" type="date" value={data.signedAt} set={(v) => setData({ ...data, signedAt: v })} /><SelectField label="Status" value={data.status} options={["Rascunho", "Enviado", "Assinado", "Vencido", "Cancelado"]} set={(v) => setData({ ...data, status: v })} /><label className="commercial-file"><span>Contrato assinado (PDF ou imagem, até 3 MB)</span><input type="file" accept="application/pdf,image/*" onChange={(e) => attach(e.target.files?.[0])} />{data.fileName && <small>Arquivo atual: {text(data.fileName)}</small>}</label><Area label="Observações" value={data.observations} set={(v) => setData({ ...data, observations: v })} /></>}
   </div>{error && <div className="commercial-error">{error}</div>}<div className="commercial-modal-actions"><button type="button" className="ghost" onClick={close}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Salvando..." : "Salvar"}</button></div></form></div></div>;
 }
 
