@@ -12,6 +12,7 @@ type Modal = { module: CommercialView; record?: AppRecord } | { module: "client"
 const money = (value: unknown) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const text = (value: unknown) => String(value ?? "");
 const arr = (value: unknown) => Array.isArray(value) ? value.map(String) : [];
+const RESTORE_VIEW_KEY = "doctype_restore_view";
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -49,6 +50,17 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     find();
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const restore = window.sessionStorage.getItem(RESTORE_VIEW_KEY);
+    if (restore !== "clients") return;
+    window.sessionStorage.removeItem(RESTORE_VIEW_KEY);
+    const timer = window.setTimeout(() => {
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>(".sidebar nav button")).find((item) => item.textContent?.includes("Clientes 360°"));
+      button?.click();
+    }, 80);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -101,13 +113,11 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
         <div><span>GESTÃO COMERCIAL</span><h1>{view === "products" ? "Produtos" : view === "quotes" ? "Orçamentos" : "Contratos"}</h1><p>{view === "products" ? "Catálogo, preço, custo, recorrência e margem." : view === "quotes" ? "Propostas vinculadas a clientes e produtos." : "Contratos assinados e documentos dos clientes."}</p></div>
         <div className="commercial-actions"><button className="ghost" onClick={() => setView(null)}><X size={17} /> Fechar</button><button className="primary" onClick={() => setModal({ module: view })}><Plus size={17} /> {view === "products" ? "Produto" : view === "quotes" ? "Orçamento" : "Contrato"}</button></div>
       </header>
-
       <div className="commercial-kpis">
         {view === "products" && <><MiniKpi label="Produtos ativos" value={String(products.filter((r) => r.data.status === "Ativo").length)} /><MiniKpi label="Categorias" value={String(new Set(products.map((r) => text(r.data.category)).filter(Boolean)).size)} /><MiniKpi label="Ticket médio" value={money(products.length ? products.reduce((s, r) => s + Number(r.data.price || 0), 0) / products.length : 0)} /></>}
         {view === "quotes" && <><MiniKpi label="Orçamentos" value={String(quotes.length)} /><MiniKpi label="Aprovados" value={String(quotes.filter((r) => r.data.status === "Aprovado").length)} /><MiniKpi label="Valor aprovado" value={money(quotes.filter((r) => r.data.status === "Aprovado").reduce((s, r) => s + Number(r.data.total || 0), 0))} /></>}
         {view === "contracts" && <><MiniKpi label="Contratos" value={String(contracts.length)} /><MiniKpi label="Assinados" value={String(contracts.filter((r) => r.data.status === "Assinado").length)} /><MiniKpi label="Valor contratado" value={money(contracts.filter((r) => r.data.status === "Assinado").reduce((s, r) => s + Number(r.data.value || 0), 0))} /></>}
       </div>
-
       <label className="commercial-search"><Search size={18} /><input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} /></label>
       {error && <div className="commercial-error">{error}</div>}
       <div className="commercial-table"><table><thead><tr>{view === "products" ? <><th>Produto</th><th>SKU</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Margem</th><th>Cobrança</th><th>Status</th></> : view === "quotes" ? <><th>Nº</th><th>Cliente</th><th>Produtos</th><th>Total</th><th>Validade</th><th>Status</th></> : <><th>Nº</th><th>Cliente</th><th>Produtos</th><th>Valor</th><th>Vigência</th><th>Documento</th><th>Status</th></>}<th>Ações</th></tr></thead><tbody>
@@ -115,7 +125,17 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
         {!filtered.length && <tr><td colSpan={9} className="commercial-empty">Nenhum registro encontrado.</td></tr>}
       </tbody></table></div>
     </div>}
-    {modal && <CommercialModal modal={modal} clients={clients} products={products} quotes={quotes} close={() => setModal(null)} saved={async () => { setModal(null); setToast("Registro salvo."); await refresh(); }} />}
+    {modal && <CommercialModal modal={modal} clients={clients} products={products} quotes={quotes} close={() => setModal(null)} saved={async () => {
+      const savedClient = modal.module === "client";
+      setModal(null);
+      setToast("Registro salvo.");
+      if (savedClient) {
+        window.sessionStorage.setItem(RESTORE_VIEW_KEY, "clients");
+        window.location.reload();
+        return;
+      }
+      await refresh();
+    }} />}
     {toast && <div className="commercial-toast">{toast}</div>}
   </>;
 }
