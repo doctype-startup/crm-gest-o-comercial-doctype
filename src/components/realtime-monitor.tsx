@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Activity, CalendarClock, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, RefreshCw, ShieldCheck } from "lucide-react";
 import { buildMonitorSnapshot } from "@/lib/monitor-engine";
-import type { AppRecord } from "@/lib/types";
+import type { Alert, AppRecord, SessionUser } from "@/lib/types";
 
-type StatePayload = { records: AppRecord[]; generatedAt: string };
+type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
 type SyncState = "live" | "syncing" | "stale" | "retrying";
 type GaugeMetric = { label: string; value: number; detail: string; tone: "good" | "attention" | "critical"; icon: typeof Gauge };
 
@@ -22,6 +22,18 @@ async function loadState(signal?: AbortSignal): Promise<StatePayload> {
   const response = await fetch("/api/state", { cache: "no-store", signal });
   if (!response.ok) throw new Error("Não foi possível atualizar o monitor.");
   return response.json();
+}
+
+function recordsSignature(records: AppRecord[]) {
+  return records.map((record) => `${record.id}:${record.updatedAt}`).sort().join("|");
+}
+
+function publishMonitorState(payload: StatePayload) {
+  window.dispatchEvent(new CustomEvent<StatePayload>("doctype:monitor-state", { detail: payload }));
+}
+
+function publishSyncState(syncState: SyncState) {
+  window.dispatchEvent(new CustomEvent<SyncState>("doctype:monitor-sync", { detail: syncState }));
 }
 
 function scoreTone(value: number): GaugeMetric["tone"] {
@@ -72,6 +84,12 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   const queued = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const signatureRef = useRef(recordsSignature(initialRecords));
+
+  function setAndPublishSync(next: SyncState) {
+    setSyncState(next);
+    publishSyncState(next);
+  }
 
   async function performRefresh() {
     if (inflight.current) {
@@ -80,18 +98,23 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
     }
     const controller = new AbortController();
     abortRef.current = controller;
-    setSyncState(error ? "retrying" : "syncing");
+    setAndPublishSync(error ? "retrying" : "syncing");
     const job = (async () => {
       try {
         const payload = await loadState(controller.signal);
+        const nextSignature = recordsSignature(payload.records);
+        const changed = nextSignature !== signatureRef.current;
+        signatureRef.current = nextSignature;
         setRecords(payload.records);
         setLastUpdate(new Date(payload.generatedAt || Date.now()));
         setError("");
-        setSyncState("live");
+        setAndPublishSync("live");
+        publishMonitorState(payload);
+        if (changed) window.dispatchEvent(new CustomEvent("doctype:records-changed", { detail: { source: "monitor" } }));
       } catch (cause) {
         if (controller.signal.aborted) return;
         setError(cause instanceof Error ? cause.message : "Falha de sincronização.");
-        setSyncState("retrying");
+        setAndPublishSync("retrying");
       } finally {
         inflight.current = null;
         abortRef.current = null;
@@ -127,10 +150,13 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   useEffect(() => {
     const poll = window.setInterval(() => { if (!document.hidden) void performRefresh(); }, POLL_MS);
     const staleCheck = window.setInterval(() => {
-      if (!document.hidden && Date.now() - lastUpdate.getTime() > STALE_MS && syncState !== "syncing") setSyncState("stale");
+      if (!document.hidden && Date.now() - lastUpdate.getTime() > STALE_MS && syncState !== "syncing") setAndPublishSync("stale");
     }, 5000);
     const onVisibility = () => { if (!document.hidden) void performRefresh(); };
-    const onRecordsChanged = () => scheduleRefresh();
+    const onRecordsChanged = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.source === "monitor") return;
+      scheduleRefresh();
+    };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("doctype:records-changed", onRecordsChanged);
     return () => {
