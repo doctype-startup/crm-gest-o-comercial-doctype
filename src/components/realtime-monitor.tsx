@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Activity, CalendarClock, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, RefreshCw, ShieldCheck } from "lucide-react";
 import { buildMonitorSnapshot } from "@/lib/monitor-engine";
@@ -10,9 +10,9 @@ type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<st
 type SyncState = "live" | "syncing" | "stale" | "retrying";
 type GaugeMetric = { label: string; value: number; detail: string; tone: "good" | "attention" | "critical"; icon: typeof Gauge };
 
-const POLL_MS = 10000;
+const POLL_MS = 3000;
 const ROTATION_MS = 7000;
-const STALE_MS = 30000;
+const STALE_MS = 15000;
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const number = (value: unknown) => Number(value || 0);
 const text = (value: unknown) => String(value ?? "");
@@ -85,35 +85,44 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | null>(null);
   const signatureRef = useRef(recordsSignature(initialRecords));
+  const lastUpdateRef = useRef(lastUpdate);
+  const syncStateRef = useRef<SyncState>("live");
+  const errorRef = useRef("");
 
-  function setAndPublishSync(next: SyncState) {
+  const setAndPublishSync = useCallback((next: SyncState) => {
+    syncStateRef.current = next;
     setSyncState(next);
     publishSyncState(next);
-  }
+  }, []);
 
-  async function performRefresh() {
+  const performRefresh = useCallback(async () => {
     if (inflight.current) {
       queued.current = true;
       return inflight.current;
     }
     const controller = new AbortController();
     abortRef.current = controller;
-    setAndPublishSync(error ? "retrying" : "syncing");
+    setAndPublishSync(errorRef.current ? "retrying" : "syncing");
     const job = (async () => {
       try {
         const payload = await loadState(controller.signal);
         const nextSignature = recordsSignature(payload.records);
         const changed = nextSignature !== signatureRef.current;
         signatureRef.current = nextSignature;
+        const nextUpdate = new Date(payload.generatedAt || Date.now());
+        lastUpdateRef.current = nextUpdate;
         setRecords(payload.records);
-        setLastUpdate(new Date(payload.generatedAt || Date.now()));
+        setLastUpdate(nextUpdate);
+        errorRef.current = "";
         setError("");
         setAndPublishSync("live");
         publishMonitorState(payload);
         if (changed) window.dispatchEvent(new CustomEvent("doctype:records-changed", { detail: { source: "monitor" } }));
       } catch (cause) {
         if (controller.signal.aborted) return;
-        setError(cause instanceof Error ? cause.message : "Falha de sincronização.");
+        const message = cause instanceof Error ? cause.message : "Falha de sincronização.";
+        errorRef.current = message;
+        setError(message);
         setAndPublishSync("retrying");
       } finally {
         inflight.current = null;
@@ -126,15 +135,15 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
     })();
     inflight.current = job;
     return job;
-  }
+  }, [setAndPublishSync]);
 
-  function scheduleRefresh() {
+  const scheduleRefresh = useCallback(() => {
     if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => {
       debounceRef.current = null;
       void performRefresh();
     }, 120);
-  }
+  }, [performRefresh]);
 
   useEffect(() => {
     const locate = () => setTarget(document.querySelector(".monitor-layout"));
@@ -150,8 +159,8 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   useEffect(() => {
     const poll = window.setInterval(() => { if (!document.hidden) void performRefresh(); }, POLL_MS);
     const staleCheck = window.setInterval(() => {
-      if (!document.hidden && Date.now() - lastUpdate.getTime() > STALE_MS && syncState !== "syncing") setAndPublishSync("stale");
-    }, 5000);
+      if (!document.hidden && Date.now() - lastUpdateRef.current.getTime() > STALE_MS && syncStateRef.current !== "syncing") setAndPublishSync("stale");
+    }, 3000);
     const onVisibility = () => { if (!document.hidden) void performRefresh(); };
     const onRecordsChanged = (event: Event) => {
       if (event instanceof CustomEvent && event.detail?.source === "monitor") return;
@@ -167,7 +176,7 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
       if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
-  }, [lastUpdate, syncState]);
+  }, [performRefresh, scheduleRefresh, setAndPublishSync]);
 
   const snapshot = useMemo(() => buildMonitorSnapshot(records), [records]);
   const metrics = useMemo(() => computeMetrics(records), [records]);
@@ -187,7 +196,7 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
         <div>
           <span className="eyebrow"><ShieldCheck size={14} /> DOC MONITOR AO VIVO</span>
           <h2>Saúde da operação</h2>
-          <p>Eventos do CRM atualizam o Guardião imediatamente; uma leitura redundante confirma o estado a cada 10 segundos.</p>
+          <p>Eventos do CRM atualizam o Guardião imediatamente; uma leitura redundante reconcilia o estado a cada 3 segundos.</p>
         </div>
         <div className={`live-sync ${syncState}`}>
           <span><i /> {syncLabel}</span>
