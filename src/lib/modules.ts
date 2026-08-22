@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ModuleKey, Role } from "./types";
 
 const text = z.string().trim().max(1000).default("");
+const longText = z.string().max(4_500_000).default("");
 const required = z.string().trim().min(1).max(200);
 const amount = z.coerce.number().finite().min(0).default(0);
 const date = z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/).default("");
@@ -12,6 +13,7 @@ export const moduleSchemas: Record<ModuleKey, z.ZodType<Record<string, unknown>>
     document: text,
     contact: text,
     services: text,
+    productIds: z.array(z.string().max(100)).default([]),
     monthly: amount,
     dueDay: z.coerce.number().int().min(1).max(31).default(1),
     startDate: date,
@@ -79,18 +81,57 @@ export const moduleSchemas: Record<ModuleKey, z.ZodType<Record<string, unknown>>
     responsibilities: text,
     status: z.enum(["Ativo", "Inativo"]).default("Ativo"),
   }),
+  products: z.object({
+    name: required,
+    sku: text,
+    category: text,
+    description: text,
+    price: amount,
+    cost: amount,
+    unit: z.enum(["unidade", "serviço", "hora", "mês", "projeto"]).default("serviço"),
+    billingType: z.enum(["Único", "Mensal", "Trimestral", "Semestral", "Anual"]).default("Único"),
+    status: z.enum(["Ativo", "Inativo"]).default("Ativo"),
+    notes: text,
+  }),
+  quotes: z.object({
+    number: required,
+    clientId: required,
+    title: required,
+    productIds: z.array(z.string().max(100)).default([]),
+    subtotal: amount,
+    discount: amount,
+    total: amount,
+    validUntil: date,
+    status: z.enum(["Rascunho", "Enviado", "Aprovado", "Recusado", "Expirado"]).default("Rascunho"),
+    notes: text,
+  }),
+  contracts: z.object({
+    number: required,
+    clientId: required,
+    quoteId: text,
+    title: required,
+    productIds: z.array(z.string().max(100)).default([]),
+    value: amount,
+    startDate: date,
+    endDate: date,
+    signedAt: date,
+    status: z.enum(["Rascunho", "Enviado", "Assinado", "Vencido", "Cancelado"]).default("Rascunho"),
+    fileName: text,
+    fileDataUrl: longText,
+    observations: text,
+  }),
 };
 
 const readByRole: Record<Role, ModuleKey[]> = {
-  CEO_ADMIN: ["clients", "accesses", "invoices", "expenses", "tasks", "crm", "team"],
-  OPERATIONS: ["clients", "accesses", "tasks", "crm", "team"],
-  FINANCE: ["clients", "invoices", "expenses", "crm"],
+  CEO_ADMIN: ["clients", "accesses", "invoices", "expenses", "tasks", "crm", "team", "products", "quotes", "contracts"],
+  OPERATIONS: ["clients", "accesses", "tasks", "crm", "team", "products", "quotes", "contracts"],
+  FINANCE: ["clients", "invoices", "expenses", "crm", "products", "quotes", "contracts"],
 };
 
 const writeByRole: Record<Role, ModuleKey[]> = {
   CEO_ADMIN: readByRole.CEO_ADMIN,
-  OPERATIONS: ["clients", "accesses", "tasks", "crm", "team"],
-  FINANCE: ["invoices", "expenses", "crm"],
+  OPERATIONS: ["clients", "accesses", "tasks", "crm", "team", "products", "quotes", "contracts"],
+  FINANCE: ["invoices", "expenses", "crm", "quotes", "contracts"],
 };
 
 export function canRead(role: Role, module: ModuleKey) {
