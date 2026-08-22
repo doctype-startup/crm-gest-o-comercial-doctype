@@ -17,6 +17,10 @@ async function openNav(page: Page, testInfo: TestInfo, label: string) {
   await target.click();
 }
 
+async function expectCommercialTableValue(page: Page, value: string) {
+  await expect(page.locator(".commercial-table tbody td").filter({ hasText: value }).first()).toBeVisible();
+}
+
 test.describe("gestão comercial", () => {
   test("produto, cliente, orçamento e contrato persistem", async ({ page }, testInfo) => {
     await login(page);
@@ -53,7 +57,7 @@ test.describe("gestão comercial", () => {
     await modal.getByLabel("Desconto (R$)").fill("90");
     await modal.getByLabel("Status").selectOption("Aprovado");
     await modal.getByRole("button", { name: "Salvar", exact: true }).click();
-    await expect(page.getByText("R$ 1.400,00", { exact: true })).toBeVisible();
+    await expectCommercialTableValue(page, "R$ 1.400,00");
 
     await openNav(page, testInfo, "Contratos");
     await page.getByRole("button", { name: "Contrato", exact: true }).click();
@@ -66,7 +70,7 @@ test.describe("gestão comercial", () => {
     await modal.getByLabel("Data da assinatura").fill("2026-08-21");
     await modal.getByLabel("Status").selectOption("Assinado");
     await modal.getByRole("button", { name: "Salvar", exact: true }).click();
-    await expect(page.getByText("R$ 1.400,00", { exact: true })).toBeVisible();
+    await expectCommercialTableValue(page, "R$ 1.400,00");
 
     await page.reload();
     await openNav(page, testInfo, "Produtos");
