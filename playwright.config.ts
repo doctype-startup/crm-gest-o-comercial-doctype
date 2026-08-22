@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 const dbUrl = `sqlite:/tmp/doctype-os-e2e-${randomUUID()}.db`;
 chromium.setGraphicsMode = false;
 const executablePath = await chromium.executablePath();
+const browserArgs = chromium.args.filter((arg) => arg !== "--single-process");
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -13,7 +14,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: "line",
-  use: { baseURL: "http://127.0.0.1:3010", trace: "retain-on-failure", screenshot: "only-on-failure", launchOptions: { executablePath, args: chromium.args } },
+  use: { baseURL: "http://127.0.0.1:3010", trace: "retain-on-failure", screenshot: "only-on-failure", launchOptions: { executablePath, args: browserArgs } },
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3010",
     url: "http://127.0.0.1:3010/login",
