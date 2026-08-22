@@ -1,27 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Activity, CalendarClock, CircleDollarSign, Gauge, RefreshCw, ShieldCheck } from "lucide-react";
+import { Activity, CalendarClock, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, RefreshCw, ShieldCheck } from "lucide-react";
+import { buildMonitorSnapshot } from "@/lib/monitor-engine";
 import type { AppRecord } from "@/lib/types";
 
 type StatePayload = { records: AppRecord[]; generatedAt: string };
+type SyncState = "live" | "syncing" | "stale" | "retrying";
+type GaugeMetric = { label: string; value: number; detail: string; tone: "good" | "attention" | "critical"; icon: typeof Gauge };
 
-type GaugeMetric = {
-  label: string;
-  value: number;
-  detail: string;
-  tone: "good" | "attention" | "critical";
-  icon: typeof Gauge;
-};
-
+const POLL_MS = 10000;
+const ROTATION_MS = 7000;
+const STALE_MS = 30000;
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const number = (value: unknown) => Number(value || 0);
 const text = (value: unknown) => String(value ?? "");
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-async function loadState(): Promise<StatePayload> {
-  const response = await fetch("/api/state", { cache: "no-store" });
+async function loadState(signal?: AbortSignal): Promise<StatePayload> {
+  const response = await fetch("/api/state", { cache: "no-store", signal });
   if (!response.ok) throw new Error("Não foi possível atualizar o monitor.");
   return response.json();
 }
@@ -37,14 +35,12 @@ function computeMetrics(records: AppRecord[]): GaugeMetric[] {
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
   const nextWeekIso = nextWeek.toISOString().slice(0, 10);
-
   const tasks = records.filter((record) => record.module === "tasks");
   const completedToday = tasks.filter((record) => text(record.data.status) === "Concluída" && record.updatedAt.slice(0, 10) === today).length;
   const dueTodayOpen = tasks.filter((record) => text(record.data.status) !== "Concluída" && text(record.data.due) === today).length;
   const overdueTasks = tasks.filter((record) => text(record.data.status) !== "Concluída" && text(record.data.due) && text(record.data.due) < today).length;
   const productivityBase = completedToday + dueTodayOpen + overdueTasks;
   const productivity = productivityBase ? clamp((completedToday / productivityBase) * 100) : (tasks.some((record) => text(record.data.status) !== "Concluída") ? 70 : 100);
-
   const clients = records.filter((record) => record.module === "clients" && text(record.data.status) === "Ativo");
   const monthlyRevenue = clients.reduce((sum, record) => sum + number(record.data.monthly), 0);
   const expenses = records.filter((record) => record.module === "expenses" && text(record.data.status) !== "Cancelado");
@@ -54,34 +50,14 @@ function computeMetrics(records: AppRecord[]): GaugeMetric[] {
   const marginPct = monthlyRevenue > 0 ? ((monthlyRevenue - recurringExpenses) / monthlyRevenue) * 100 : (recurringExpenses > 0 ? 0 : 100);
   const overduePct = monthlyRevenue > 0 ? (overdueReceivable / monthlyRevenue) * 100 : (overdueReceivable > 0 ? 100 : 0);
   const financial = clamp(55 + (marginPct * 0.45) - (overduePct * 0.5));
-
   const datedOpenTasks = tasks.filter((record) => text(record.data.status) !== "Concluída" && text(record.data.due));
   const onTimeOpen = datedOpenTasks.filter((record) => text(record.data.due) >= today).length;
   const deadline = datedOpenTasks.length ? clamp((onTimeOpen / datedOpenTasks.length) * 100) : 100;
   const dueSoon = datedOpenTasks.filter((record) => text(record.data.due) >= today && text(record.data.due) <= nextWeekIso).length;
-
   return [
-    {
-      label: "Produtividade do dia",
-      value: productivity,
-      detail: `${completedToday} concluída${completedToday === 1 ? "" : "s"} hoje • ${dueTodayOpen} para hoje • ${overdueTasks} atrasada${overdueTasks === 1 ? "" : "s"}`,
-      tone: scoreTone(productivity),
-      icon: Activity,
-    },
-    {
-      label: "Saúde financeira",
-      value: financial,
-      detail: `Receita mensal ${brl(monthlyRevenue)} • custos recorrentes ${brl(recurringExpenses)} • vencido ${brl(overdueReceivable)}`,
-      tone: scoreTone(financial),
-      icon: CircleDollarSign,
-    },
-    {
-      label: "Saúde dos prazos",
-      value: deadline,
-      detail: `${overdueTasks} atrasada${overdueTasks === 1 ? "" : "s"} • ${dueSoon} vencimento${dueSoon === 1 ? "" : "s"} nos próximos 7 dias`,
-      tone: scoreTone(deadline),
-      icon: CalendarClock,
-    },
+    { label: "Produtividade do dia", value: productivity, detail: `${completedToday} concluída${completedToday === 1 ? "" : "s"} hoje • ${dueTodayOpen} para hoje • ${overdueTasks} atrasada${overdueTasks === 1 ? "" : "s"}`, tone: scoreTone(productivity), icon: Activity },
+    { label: "Saúde financeira", value: financial, detail: `Receita mensal ${brl(monthlyRevenue)} • custos recorrentes ${brl(recurringExpenses)} • vencido ${brl(overdueReceivable)}`, tone: scoreTone(financial), icon: CircleDollarSign },
+    { label: "Saúde dos prazos", value: deadline, detail: `${overdueTasks} atrasada${overdueTasks === 1 ? "" : "s"} • ${dueSoon} vencimento${dueSoon === 1 ? "" : "s"} nos próximos 7 dias`, tone: scoreTone(deadline), icon: CalendarClock },
   ];
 }
 
@@ -89,22 +65,52 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   const [records, setRecords] = useState<AppRecord[]>(initialRecords);
   const [target, setTarget] = useState<Element | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(() => new Date());
+  const [syncState, setSyncState] = useState<SyncState>("live");
   const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
+  const [sectionIndex, setSectionIndex] = useState(0);
+  const inflight = useRef<Promise<void> | null>(null);
+  const queued = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<number | null>(null);
 
-  async function refresh() {
-    setRefreshing(true);
-    try {
-      const payload = await loadState();
-      setRecords(payload.records);
-      setLastUpdate(new Date());
-      setError("");
-      window.dispatchEvent(new Event("doctype:records-changed"));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Falha de sincronização.");
-    } finally {
-      setRefreshing(false);
+  async function performRefresh() {
+    if (inflight.current) {
+      queued.current = true;
+      return inflight.current;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSyncState(error ? "retrying" : "syncing");
+    const job = (async () => {
+      try {
+        const payload = await loadState(controller.signal);
+        setRecords(payload.records);
+        setLastUpdate(new Date(payload.generatedAt || Date.now()));
+        setError("");
+        setSyncState("live");
+      } catch (cause) {
+        if (controller.signal.aborted) return;
+        setError(cause instanceof Error ? cause.message : "Falha de sincronização.");
+        setSyncState("retrying");
+      } finally {
+        inflight.current = null;
+        abortRef.current = null;
+        if (queued.current) {
+          queued.current = false;
+          void performRefresh();
+        }
+      }
+    })();
+    inflight.current = job;
+    return job;
+  }
+
+  function scheduleRefresh() {
+    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => {
+      debounceRef.current = null;
+      void performRefresh();
+    }, 120);
   }
 
   useEffect(() => {
@@ -119,17 +125,35 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 10000);
-    const onVisibility = () => { if (!document.hidden) void refresh(); };
+    const poll = window.setInterval(() => { if (!document.hidden) void performRefresh(); }, POLL_MS);
+    const staleCheck = window.setInterval(() => {
+      if (!document.hidden && Date.now() - lastUpdate.getTime() > STALE_MS && syncState !== "syncing") setSyncState("stale");
+    }, 5000);
+    const onVisibility = () => { if (!document.hidden) void performRefresh(); };
+    const onRecordsChanged = () => scheduleRefresh();
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("doctype:records-changed", onRecordsChanged);
     return () => {
-      window.clearInterval(timer);
+      window.clearInterval(poll);
+      window.clearInterval(staleCheck);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("doctype:records-changed", onRecordsChanged);
+      if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
-  }, []);
+  }, [lastUpdate, syncState]);
 
+  const snapshot = useMemo(() => buildMonitorSnapshot(records), [records]);
   const metrics = useMemo(() => computeMetrics(records), [records]);
-  if (!target) return null;
+  const section = snapshot.sections[sectionIndex % snapshot.sections.length];
+
+  useEffect(() => {
+    const rotation = window.setInterval(() => setSectionIndex((current) => (current + 1) % Math.max(snapshot.sections.length, 1)), ROTATION_MS);
+    return () => window.clearInterval(rotation);
+  }, [snapshot.sections.length]);
+
+  if (!target || !section) return null;
+  const syncLabel = syncState === "live" ? "AO VIVO" : syncState === "syncing" ? "SINCRONIZANDO" : syncState === "stale" ? "DADOS DESATUALIZADOS" : "RECONECTANDO";
 
   return createPortal(
     <section className="card realtime-health" aria-label="Saúde operacional em tempo real">
@@ -137,15 +161,17 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
         <div>
           <span className="eyebrow"><ShieldCheck size={14} /> DOC MONITOR AO VIVO</span>
           <h2>Saúde da operação</h2>
-          <p>Leitura automática dos dados reais do DOC.OS, atualizada a cada 10 segundos.</p>
+          <p>Eventos do CRM atualizam o Guardião imediatamente; uma leitura redundante confirma o estado a cada 10 segundos.</p>
         </div>
-        <div className="live-sync">
-          <span><i /> AO VIVO</span>
-          <small>{`Atualizado ${lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}</small>
-          <button type="button" aria-label="Atualizar monitor agora" onClick={() => void refresh()} disabled={refreshing}><RefreshCw size={15} className={refreshing ? "spin" : ""} /></button>
+        <div className={`live-sync ${syncState}`}>
+          <span><i /> {syncLabel}</span>
+          <small>{`Última leitura válida ${lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}</small>
+          <button type="button" aria-label="Atualizar monitor agora" onClick={() => void performRefresh()} disabled={syncState === "syncing"}><RefreshCw size={15} className={syncState === "syncing" ? "spin" : ""} /></button>
         </div>
       </div>
-      {error && <div className="realtime-health-error">{error}</div>}
+
+      {error && <div className="realtime-health-error">O monitor manteve a última leitura válida. Tentando sincronizar novamente: {error}</div>}
+
       <div className="health-gauges">
         {metrics.map((metric) => {
           const Icon = metric.icon;
@@ -156,7 +182,22 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
           </article>;
         })}
       </div>
-      <div className="health-legend"><span><i className="good" /> 75–100 Saudável</span><span><i className="attention" /> 50–74 Atenção</span><span><i className="critical" /> 0–49 Crítico</span></div>
+
+      <div className={`monitor-rotation ${section.tone}`} data-section={section.id} aria-live="polite">
+        <div className="monitor-rotation-head">
+          <div><span>LEITURA {sectionIndex % snapshot.sections.length + 1}/{snapshot.sections.length}</span><h3>{section.title}</h3><p>{section.subtitle}</p></div>
+          <div className="monitor-rotation-controls">
+            <button type="button" aria-label="Informação anterior" onClick={() => setSectionIndex((current) => (current - 1 + snapshot.sections.length) % snapshot.sections.length)}><ChevronLeft size={17} /></button>
+            <button type="button" aria-label="Próxima informação" onClick={() => setSectionIndex((current) => (current + 1) % snapshot.sections.length)}><ChevronRight size={17} /></button>
+          </div>
+        </div>
+        <div className="monitor-rotation-grid">
+          {section.items.map((item) => <article className={`monitor-live-item ${item.tone}`} key={item.id}><span>{item.label}</span><strong>{item.value}</strong><p>{item.detail}</p></article>)}
+        </div>
+        <div className="monitor-dots" aria-label="Seções do monitor">{snapshot.sections.map((candidate, index) => <button type="button" key={candidate.id} className={index === sectionIndex % snapshot.sections.length ? "active" : ""} aria-label={`Abrir ${candidate.title}`} onClick={() => setSectionIndex(index)} />)}</div>
+      </div>
+
+      <div className="health-legend"><span><i className="good" /> Saudável</span><span><i className="attention" /> Atenção</span><span><i className="critical" /> Crítico</span><span>{snapshot.recordCount} registros na leitura atual</span></div>
     </section>,
     target,
   );
