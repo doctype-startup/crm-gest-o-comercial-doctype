@@ -26,8 +26,6 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
   const [syncState, setSyncState] = useState<SyncState>("live");
   const [speechIndex, setSpeechIndex] = useState(0);
 
-  useEffect(() => setLiveState(state), [state]);
-
   useEffect(() => {
     const onMonitorState = (event: Event) => {
       if (event instanceof CustomEvent<StatePayload> && event.detail) setLiveState(event.detail);
