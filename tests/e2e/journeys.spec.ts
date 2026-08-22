@@ -24,6 +24,9 @@ async function addRecord(page: Page, nav: string, button: RegExp, fields: Record
 }
 
 test("login, CRUD, persistência e todos os módulos", async ({ page }, testInfo) => {
+  const createdName = `Cliente E2E ${testInfo.project.name}`;
+  const updatedName = `Cliente Atualizado ${testInfo.project.name}`;
+
   await login(page);
   console.log("STEP login");
   if (testInfo.project.name === "mobile") {
@@ -31,20 +34,21 @@ test("login, CRUD, persistência e todos os módulos", async ({ page }, testInfo
   }
   await page.getByRole("button", { name: "Clientes 360°", exact: true }).click();
   await page.getByRole("button", { name: /Novo cliente/ }).click();
-  await page.getByLabel("Nome do cliente").fill(`Cliente E2E ${testInfo.project.name}`);
+  await page.getByLabel("Nome do cliente").fill(createdName);
   await page.getByLabel("Serviços contratados").fill("Marketing e CRM");
   await page.getByLabel("Mensalidade").fill("1500");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
-  await expect(page.getByText(`Cliente E2E ${testInfo.project.name}`)).toBeVisible();
+  await expect(page.getByText(createdName)).toBeVisible();
 
-  await page.getByRole("button", { name: "Editar cliente" }).click();
-  await page.getByLabel("Nome do cliente").fill(`Cliente Atualizado ${testInfo.project.name}`);
+  let clientRow = page.getByRole("row", { name: new RegExp(createdName) });
+  await clientRow.getByRole("button", { name: "Editar cliente" }).click();
+  await page.getByLabel("Nome do cliente").fill(updatedName);
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText("Registro atualizado.")).toBeVisible();
   await page.reload();
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
   await page.getByRole("button", { name: "Clientes 360°", exact: true }).click();
-  await expect(page.getByText(`Cliente Atualizado ${testInfo.project.name}`)).toBeVisible();
+  await expect(page.getByText(updatedName)).toBeVisible();
   console.log("STEP client-persisted");
 
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
@@ -79,7 +83,8 @@ test("login, CRUD, persistência e todos os módulos", async ({ page }, testInfo
   console.log("STEP backup");
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
   await page.getByRole("button", { name: "Clientes 360°", exact: true }).click();
-  await page.getByRole("button", { name: "Excluir cliente" }).click();
+  clientRow = page.getByRole("row", { name: new RegExp(updatedName) });
+  await clientRow.getByRole("button", { name: "Excluir cliente" }).click();
   await page.getByRole("button", { name: "Excluir", exact: true }).click();
-  await expect(page.getByText(`Cliente Atualizado ${testInfo.project.name}`)).not.toBeVisible();
+  await expect(page.getByText(updatedName)).not.toBeVisible();
 });
