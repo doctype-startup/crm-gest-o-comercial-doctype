@@ -10,7 +10,7 @@ async function login(page: Page) {
 
 async function openMonitor(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
-  await page.getByRole("button", { name: "DOC Monitor", exact: true }).click();
+  await page.getByRole("button", { name: /^DOC Monitor/ }).click();
   await expect(page.locator(".topbar h1")).toHaveText("DOC Monitor");
 }
 
