@@ -42,6 +42,20 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     const payload = await api<StatePayload>("/api/state");
     setState(payload);
     window.dispatchEvent(new Event("doctype:records-changed"));
+    return payload;
+  }
+
+  async function openCommercial(next: CommercialView) {
+    setError("");
+    await refresh();
+    setView(next);
+    setSearch("");
+  }
+
+  async function openCreate(module: CommercialView) {
+    setError("");
+    await refresh();
+    setModal({ module });
   }
 
   useEffect(() => {
@@ -70,9 +84,9 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
   }
 
   const nav = navTarget ? createPortal(<>
-    <button className={view === "products" ? "active" : ""} onClick={() => { setView("products"); setSearch(""); }}><Package size={18} /><span>Produtos</span></button>
-    <button className={view === "quotes" ? "active" : ""} onClick={() => { setView("quotes"); setSearch(""); }}><FileText size={18} /><span>Orçamentos</span></button>
-    <button className={view === "contracts" ? "active" : ""} onClick={() => { setView("contracts"); setSearch(""); }}><FileSignature size={18} /><span>Contratos</span></button>
+    <button className={view === "products" ? "active" : ""} onClick={() => { void openCommercial("products"); }}><Package size={18} /><span>Produtos</span></button>
+    <button className={view === "quotes" ? "active" : ""} onClick={() => { void openCommercial("quotes"); }}><FileText size={18} /><span>Orçamentos</span></button>
+    <button className={view === "contracts" ? "active" : ""} onClick={() => { void openCommercial("contracts"); }}><FileSignature size={18} /><span>Contratos</span></button>
   </>, navTarget) : null;
 
   const source = view === "products" ? products : view === "quotes" ? quotes : contracts;
@@ -84,7 +98,7 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     {view && <div className="commercial-page commercial-suite">
       <header className="commercial-head">
         <div><span>GESTÃO COMERCIAL</span><h1>{view === "products" ? "Produtos" : view === "quotes" ? "Orçamentos" : "Contratos"}</h1><p>{view === "products" ? "Catálogo, preço, custo, recorrência e margem." : view === "quotes" ? "Propostas vinculadas a clientes e produtos." : "Contratos assinados e documentos dos clientes."}</p></div>
-        <div className="commercial-actions"><button className="ghost" onClick={() => setView(null)}><X size={17} /> Fechar</button><button className="primary" onClick={() => setModal({ module: view })}><Plus size={17} /> {view === "products" ? "Produto" : view === "quotes" ? "Orçamento" : "Contrato"}</button></div>
+        <div className="commercial-actions"><button className="ghost" onClick={() => setView(null)}><X size={17} /> Fechar</button><button className="primary" onClick={() => { void openCreate(view); }}><Plus size={17} /> {view === "products" ? "Produto" : view === "quotes" ? "Orçamento" : "Contrato"}</button></div>
       </header>
       <div className="commercial-kpis">
         {view === "products" && <><MiniKpi label="Produtos ativos" value={String(products.filter((r) => r.data.status === "Ativo").length)} /><MiniKpi label="Categorias" value={String(new Set(products.map((r) => text(r.data.category)).filter(Boolean)).size)} /><MiniKpi label="Ticket médio" value={money(products.length ? products.reduce((s, r) => s + Number(r.data.price || 0), 0) / products.length : 0)} /></>}
