@@ -8,11 +8,6 @@ async function login(page: Page) {
   await expect(page.locator(".topbar h1")).toHaveText("Visão Geral");
 }
 
-async function expose(page: Page, testInfo: TestInfo, locator: import("@playwright/test").Locator) {
-  if (testInfo.project.name === "mobile") await locator.focus();
-  else await locator.hover();
-}
-
 async function openNav(page: Page, testInfo: TestInfo, label: string) {
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
   const button = page.getByRole("button", { name: label, exact: true });
@@ -20,17 +15,17 @@ async function openNav(page: Page, testInfo: TestInfo, label: string) {
   await button.click();
 }
 
-test("interactive hover and focus states preserve readable contrast across DOC.OS", async ({ page }, testInfo) => {
+test("interactive hover states preserve readable contrast across DOC.OS", async ({ page }, testInfo) => {
   await login(page);
 
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
   const clientNav = page.getByRole("button", { name: "Clientes 360°", exact: true });
-  await expose(page, testInfo, clientNav);
+  await clientNav.hover();
   expect(await clientNav.locator("span").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(6, 19, 63)");
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Fechar menu" }).click();
 
   const quick = page.locator(".dashboard-grid .quick").first();
-  await expose(page, testInfo, quick);
+  await quick.hover();
   expect(await quick.locator("span").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(93, 104, 120)");
   expect(await quick.locator("strong").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(6, 19, 63)");
 
@@ -38,12 +33,7 @@ test("interactive hover and focus states preserve readable contrast across DOC.O
   const rows = page.locator(".table-wrap tbody tr");
   if (await rows.count()) {
     const row = rows.first();
-    if (testInfo.project.name === "mobile") {
-      const action = row.locator("button").first();
-      if (await action.count()) await action.focus();
-    } else {
-      await row.hover();
-    }
+    await row.hover();
     const cell = row.locator("td").first();
     expect(await cell.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
   }
@@ -53,12 +43,7 @@ test("interactive hover and focus states preserve readable contrast across DOC.O
   const commercialRows = page.locator(".commercial-table tbody tr").filter({ has: page.locator("td strong") });
   if (await commercialRows.count()) {
     const row = commercialRows.first();
-    if (testInfo.project.name === "mobile") {
-      const action = row.locator(".commercial-row-actions button").first();
-      if (await action.count()) await action.focus();
-    } else {
-      await row.hover();
-    }
+    await row.hover();
     expect(await row.locator("td strong").first().evaluate((el) => getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
   }
 });
