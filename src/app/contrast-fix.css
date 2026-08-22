@@ -1,1 +1,43 @@
-/* placeholder */
+/* DOC.OS contrast safety layer — prevents hidden text on dark workspace surfaces */
+
+.os-shell .table-wrap{background:#0a1d3c!important;border-color:rgba(126,151,193,.22)!important}
+.os-shell .table-wrap table{color:#eef4ff!important}
+.os-shell .table-wrap thead th{background:#091a36!important;color:#aebbd0!important;border-color:rgba(126,151,193,.18)!important}
+.os-shell .table-wrap tbody td{background:transparent!important;color:#e7eef9!important;border-color:rgba(126,151,193,.14)!important}
+.os-shell .table-wrap tbody tr{background:transparent!important}
+.os-shell .table-wrap tbody tr:hover{background:#102747!important}
+.os-shell .table-wrap tbody tr:hover td{background:transparent!important;color:#fff!important}
+.os-shell .table-wrap tbody tr:focus-within{background:#102747!important}
+.os-shell .table-wrap tbody tr:focus-within td{color:#fff!important}
+
+.os-shell .card,.os-shell .quick,.os-shell .renewal-card,.os-shell .goal-card{color:#eef4ff!important}
+.os-shell .card p,.os-shell .card small,.os-shell .quick span,.os-shell .renewal-card p,.os-shell .section-title p{color:#b5c2d6!important}
+.os-shell .card h2,.os-shell .card h3,.os-shell .quick strong,.os-shell .renewal-card h3,.os-shell .subheading{color:#fff!important}
+
+.os-shell .renewal-card>span{color:#2b568f!important;background:#eaf1ff!important}
+.os-shell .renewal-card>span.soon{color:#8a5200!important;background:#fff1df!important}
+.os-shell .renewal-card>span.late{color:#a52332!important;background:#fdebed!important}
+
+.os-shell .badge.success{color:#146a45!important;background:#e7f7ef!important}
+.os-shell .badge.danger{color:#a52332!important;background:#fdebed!important}
+.os-shell .badge.warning{color:#875800!important;background:#fff4dc!important}
+.os-shell .badge.info{color:#244e85!important;background:#eaf1ff!important}
+
+.os-shell .search-box{background:#0a1d3c!important;color:#aebbd0!important}
+.os-shell .search-box input{color:#eef4ff!important}
+.os-shell .search-box input::placeholder{color:#91a2bb!important;opacity:1}
+
+.os-shell .notice span,.os-shell .security-banner span,.os-shell .monitor-principles span,.os-shell .alert-list small{color:#b7c4d8!important}
+
+.os-shell .row-actions button,.os-shell .table-action{background:#0d2448!important;color:#dce7f7!important;border-color:rgba(126,151,193,.26)!important}
+.os-shell .row-actions button:hover,.os-shell .table-action:hover{background:#16345f!important;color:#fff!important}
+.os-shell .row-actions button.delete{color:#ff8992!important;border-color:rgba(255,137,146,.35)!important}
+
+.modal,.modal form,.modal .field{color:#172033!important}
+.modal .field>span{color:#465265!important}
+.modal input,.modal select,.modal textarea{color:#172033!important;background:#fff!important}
+
+@media(max-width:700px){
+  .os-shell .table-wrap tbody td{font-size:13px!important;line-height:1.5!important}
+  .os-shell .table-wrap thead th{font-size:10.5px!important}
+}
