@@ -85,10 +85,10 @@ function computeMetrics(records: AppRecord[]): GaugeMetric[] {
   ];
 }
 
-export function RealtimeMonitor() {
-  const [records, setRecords] = useState<AppRecord[]>([]);
+export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[] }) {
+  const [records, setRecords] = useState<AppRecord[]>(initialRecords);
   const [target, setTarget] = useState<Element | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date>(() => new Date());
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -109,14 +109,16 @@ export function RealtimeMonitor() {
 
   useEffect(() => {
     const locate = () => setTarget(document.querySelector(".monitor-layout"));
-    locate();
     const observer = new MutationObserver(locate);
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    const frame = window.requestAnimationFrame(locate);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
-    void refresh();
     const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 10000);
     const onVisibility = () => { if (!document.hidden) void refresh(); };
     document.addEventListener("visibilitychange", onVisibility);
@@ -139,7 +141,7 @@ export function RealtimeMonitor() {
         </div>
         <div className="live-sync">
           <span><i /> AO VIVO</span>
-          <small>{lastUpdate ? `Atualizado ${lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Sincronizando..."}</small>
+          <small>{`Atualizado ${lastUpdate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`}</small>
           <button type="button" aria-label="Atualizar monitor agora" onClick={() => void refresh()} disabled={refreshing}><RefreshCw size={15} className={refreshing ? "spin" : ""} /></button>
         </div>
       </div>
