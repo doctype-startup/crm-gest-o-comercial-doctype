@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -8,13 +8,20 @@ async function login(page: Page) {
   await expect(page.getByRole("heading", { name: "Visão Geral" })).toBeVisible();
 }
 
-test.describe("gestão comercial", () => {
-  test.skip(({ isMobile }) => isMobile, "A jornada comercial completa roda em desktop; o shell mobile é validado em journeys.spec.ts.");
+async function openNav(page: Page, testInfo: TestInfo, label: string) {
+  if (testInfo.project.name === "mobile") {
+    await page.getByRole("button", { name: "Abrir menu" }).click();
+  }
+  const target = page.getByRole("button", { name: label, exact: true });
+  await target.scrollIntoViewIfNeeded();
+  await target.click();
+}
 
-  test("produto, cliente, orçamento e contrato persistem", async ({ page }) => {
+test.describe("gestão comercial", () => {
+  test("produto, cliente, orçamento e contrato persistem", async ({ page }, testInfo) => {
     await login(page);
 
-    await page.getByRole("button", { name: "Produtos", exact: true }).click();
+    await openNav(page, testInfo, "Produtos");
     await expect(page.getByRole("heading", { name: "Produtos", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Produto", exact: true }).click();
     let modal = page.locator(".commercial-modal");
@@ -28,7 +35,7 @@ test.describe("gestão comercial", () => {
     await expect(page.getByText("DOC CRM E2E", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Fechar", exact: true }).click();
-    await page.getByRole("button", { name: "Clientes 360°", exact: true }).click();
+    await openNav(page, testInfo, "Clientes 360°");
     await page.getByRole("button", { name: /Novo cliente/ }).click();
     const clientDialog = page.getByRole("dialog");
     await clientDialog.getByLabel("Nome do cliente").fill("Cliente Comercial E2E");
@@ -37,7 +44,7 @@ test.describe("gestão comercial", () => {
     await clientDialog.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(page.getByText("Cliente Comercial E2E", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Orçamentos", exact: true }).click();
+    await openNav(page, testInfo, "Orçamentos");
     await page.getByRole("button", { name: "Orçamento", exact: true }).click();
     modal = page.locator(".commercial-modal");
     await modal.getByLabel("Cliente *").selectOption({ label: "Cliente Comercial E2E" });
@@ -48,7 +55,7 @@ test.describe("gestão comercial", () => {
     await modal.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(page.getByText("R$ 1.400,00", { exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Contratos", exact: true }).click();
+    await openNav(page, testInfo, "Contratos");
     await page.getByRole("button", { name: "Contrato", exact: true }).click();
     modal = page.locator(".commercial-modal");
     await modal.getByLabel("Cliente *").selectOption({ label: "Cliente Comercial E2E" });
@@ -62,9 +69,9 @@ test.describe("gestão comercial", () => {
     await expect(page.getByText("R$ 1.400,00", { exact: true })).toBeVisible();
 
     await page.reload();
-    await page.getByRole("button", { name: "Produtos", exact: true }).click();
+    await openNav(page, testInfo, "Produtos");
     await expect(page.getByText("DOC CRM E2E", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Contratos", exact: true }).click();
+    await openNav(page, testInfo, "Contratos");
     await expect(page.getByText("Cliente Comercial E2E", { exact: true })).toBeVisible();
     await expect(page.getByText("Assinado", { exact: true })).toBeVisible();
   });
