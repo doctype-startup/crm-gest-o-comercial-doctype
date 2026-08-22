@@ -28,10 +28,10 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
 
   useEffect(() => {
     const onMonitorState = (event: Event) => {
-      if (event instanceof CustomEvent<StatePayload> && event.detail) setLiveState(event.detail);
+      if (event instanceof CustomEvent && event.detail) setLiveState(event.detail as StatePayload);
     };
     const onMonitorSync = (event: Event) => {
-      if (event instanceof CustomEvent<SyncState> && event.detail) setSyncState(event.detail);
+      if (event instanceof CustomEvent && event.detail) setSyncState(event.detail as SyncState);
     };
     window.addEventListener("doctype:monitor-state", onMonitorState);
     window.addEventListener("doctype:monitor-sync", onMonitorSync);
