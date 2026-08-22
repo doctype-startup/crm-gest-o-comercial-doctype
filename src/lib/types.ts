@@ -8,10 +8,10 @@ export type ModuleKey =
   | "expenses"
   | "tasks"
   | "crm"
-  | "team"
-  | "products"
-  | "quotes"
-  | "contracts";
+  | "team";
+
+export type CommercialModuleKey = "products" | "quotes" | "contracts";
+export type RecordModuleKey = ModuleKey | CommercialModuleKey;
 
 export interface OrganizationsTable {
   id: string;
@@ -43,7 +43,7 @@ export interface SessionsTable {
 export interface RecordsTable {
   id: string;
   org_id: string;
-  module: ModuleKey;
+  module: RecordModuleKey;
   data: string;
   created_by: string;
   created_at: string;
@@ -88,7 +88,7 @@ export interface SessionUser {
 
 export interface AppRecord {
   id: string;
-  module: ModuleKey;
+  module: RecordModuleKey;
   data: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
