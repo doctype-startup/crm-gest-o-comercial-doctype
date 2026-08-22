@@ -8,6 +8,7 @@ import "./commercial-suite.css";
 import "./realtime-monitor.css";
 import "./ux-visual-audit.css";
 import "./contrast-fix.css";
+import "./doc-crm-security-ux.css";
 
 export const metadata: Metadata = {
   title: "DOCTYPE OS — Gestão Interna",
