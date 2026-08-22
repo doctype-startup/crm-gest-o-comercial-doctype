@@ -5,14 +5,14 @@ async function login(page: import("@playwright/test").Page, projectName: string)
   await page.getByLabel("E-mail").fill("admin@doctype.local");
   await page.getByLabel("Senha").fill("Doctype@2026");
   await page.getByRole("button", { name: "Entrar no DOCTYPE OS" }).click();
-  await expect(page.getByRole("heading", { name: "Visão Geral" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Visão Geral", level: 1 })).toBeVisible();
   if (projectName === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
 }
 
 test("DOC CRM keeps readable goal card and table contrast", async ({ page }, testInfo) => {
   await login(page, testInfo.project.name);
   await page.getByRole("button", { name: "DOC CRM", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "DOC CRM", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DOC CRM", exact: true, level: 1 })).toBeVisible();
 
   const goalCard = page.locator(".goal-card");
   await expect(goalCard).toBeVisible();
