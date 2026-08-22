@@ -1,0 +1,54 @@
+/* DOC Monitor — explicit contrast for "Como o Guardião atua" */
+
+.os-shell .monitor-layout > .card{
+  background:linear-gradient(145deg,#0a1d3c,#0b2246)!important;
+  border:1px solid rgba(126,151,193,.22)!important;
+  color:#f7f9ff!important;
+}
+.os-shell .monitor-layout > .card .section-title h2{
+  color:#fff!important;
+  font-size:19px!important;
+  line-height:1.25!important;
+  font-weight:850!important;
+}
+.os-shell .monitor-layout > .card .section-title p{
+  color:#c0ccdc!important;
+  font-size:12.5px!important;
+  line-height:1.5!important;
+}
+.os-shell .monitor-principles{
+  gap:12px!important;
+}
+.os-shell .monitor-principles > div{
+  min-height:102px!important;
+  padding:16px!important;
+  border:1px solid rgba(126,151,193,.20)!important;
+  border-radius:12px!important;
+  background:linear-gradient(145deg,#0c2348,#0a1d3c)!important;
+  color:#f7f9ff!important;
+  box-shadow:0 10px 26px rgba(2,10,28,.16)!important;
+}
+.os-shell .monitor-principles > div svg{
+  color:#ff7b26!important;
+  width:22px!important;
+  height:22px!important;
+}
+.os-shell .monitor-principles > div strong{
+  color:#fff!important;
+  font-size:13.5px!important;
+  line-height:1.35!important;
+  font-weight:850!important;
+}
+.os-shell .monitor-principles > div span{
+  color:#c5d0e0!important;
+  font-size:12.5px!important;
+  line-height:1.5!important;
+  opacity:1!important;
+}
+
+@media(max-width:700px){
+  .os-shell .monitor-principles{grid-template-columns:1fr!important}
+  .os-shell .monitor-principles > div{min-height:96px!important;padding:15px!important}
+  .os-shell .monitor-principles > div strong{font-size:14px!important}
+  .os-shell .monitor-principles > div span{font-size:13px!important}
+}
