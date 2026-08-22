@@ -5,12 +5,12 @@ Atualizado em: 22/08/2026
 ## Repositório e produção
 - Repositório oficial: `doctype-startup/crm-gest-o-comercial-doctype`
 - Branch de produção: `main`
-- Último commit funcional validado antes deste handoff: `843814169e22b7460445b3d968f6cd42113d64f4`
-- Vercel desse commit: `success`
 - Projeto Vercel: `doctype-os-gestao`
+- O código versionado no GitHub é a fonte de verdade do sistema.
+- Antes de trabalhar, conferir o HEAD atual de `main`, o último CI verde e o deployment Vercel correspondente.
 
 ## Objetivo do sistema
-DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Deve centralizar gestão comercial, clientes, financeiro, operação, DOC CRM, equipe, renovações, configurações e monitoramento inteligente pelo DOC Monitor.
+DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Centraliza gestão comercial, clientes, financeiro, operação, DOC CRM, equipe, renovações, configurações e monitoramento inteligente pelo DOC Monitor.
 
 ## Identidade e UX obrigatórias
 - Produto: `DOC.OS`
@@ -21,6 +21,7 @@ DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Deve centralizar 
 - Navegação deve usar o mesmo shell/topbar/sidebar em todos os módulos.
 - Apenas um item do menu pode ficar ativo por vez.
 - Desktop e mobile devem funcionar integralmente.
+- Nenhum hover/focus pode esconder texto, ícone ou valor por conflito de contraste.
 
 ## Módulos existentes
 - Visão Geral
@@ -37,82 +38,106 @@ DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Deve centralizar 
 - Orçamentos
 - Contratos
 
-## Gestão comercial adicionada
+## Persistência e arquitetura
+- Registros usam a tabela compartilhada `records`.
+- Segregação multiempresa por `org_id`.
+- Produtos, Orçamentos e Contratos não criam banco paralelo.
+- `src/lib/state.ts` monta o estado autorizado por função e é a fonte de leitura do frontend via `/api/state`.
+- O DOC Monitor é consumidor do estado autorizado: não grava, edita nem exclui dados operacionais.
+- Permissões existentes devem continuar sendo respeitadas. O monitor nunca pode contornar `canRead`/`canWrite`.
+
+## Gestão comercial
 ### Produtos
-Campos atuais incluem:
-- Nome
-- SKU/código
-- Categoria
-- Descrição
-- Preço de venda
-- Custo
-- Unidade
-- Tipo de cobrança
-- Status
-- Observações
+Campos incluem nome, SKU/código, categoria, descrição, preço de venda, custo, unidade, tipo de cobrança, status e observações.
 
 ### Clientes ↔ Produtos
-O cadastro nativo de Clientes 360° possui `productIds`, permitindo associar produtos contratados ao cliente.
+Clientes 360° possui `productIds` para associar produtos contratados.
 
 ### Orçamentos
-Inclui:
-- Número
-- Cliente
-- Título
-- Produtos
-- Subtotal
-- Desconto
-- Total
-- Validade
-- Status
-- Condições/observações
+Número, cliente, título, produtos, subtotal, desconto, total, validade, status e condições/observações.
 
 ### Contratos
-Inclui:
-- Número
-- Cliente
-- Orçamento relacionado
-- Título
-- Produtos
-- Valor
-- Início
-- Fim/renovação
-- Data da assinatura
-- Status
-- Upload de contrato assinado em PDF ou imagem
-- Observações
+Número, cliente, orçamento relacionado, título, produtos, valor, início, fim/renovação, data de assinatura, status, upload do contrato assinado e observações.
 
-## Persistência e arquitetura
-- Os registros usam a arquitetura compartilhada de `records` já existente no sistema.
-- A segregação multiempresa é baseada em `org_id`.
-- Produtos, Orçamentos e Contratos não devem criar um banco paralelo.
-- A API e validações devem manter tipagem/validação dos módulos comerciais.
-- Exclusão de cliente deve tratar registros comerciais relacionados conforme a regra vigente do backend.
+## DOC Monitor / Guardião — arquitetura de observabilidade
+O DOC Monitor deve funcionar como camada de observabilidade do DOC.OS e nunca como estado paralelo do CRM.
 
-## DOC Monitor / Guardião
-- O Guardião é o mascote/monitor do DOC.OS.
-- O asset válido em produção é `public/assets/guardiao-monitor.webp`.
-- NÃO usar `public/assets/guardiao-inline.png`: esse arquivo foi identificado como inválido/corrompido (11 bytes).
-- O DOC Monitor deve continuar exibindo alertas e direcionando para módulos relevantes.
-- Não reintroduzir círculo laranja decorativo que atrapalhe o conteúdo do card.
-- O Guardião deve aparecer integrado ao monitor e manter proporção correta.
+### Arquivos principais
+- `src/lib/monitor.ts`: alertas operacionais tradicionais.
+- `src/lib/monitor-engine.ts`: motor puro de consolidação dos dados do sistema em seções rotativas.
+- `src/components/realtime-monitor.tsx`: sincronização, resiliência, termômetros e rotação visual.
+- `src/app/realtime-monitor.css`: layout e estados visuais do monitor ao vivo.
+- `src/components/doc-monitor-overlay.tsx`: overlay/alertas do Guardião.
 
-## Correções estruturais recentes
-Foram corrigidos:
+### Princípios obrigatórios
+1. O monitor somente lê os registros autorizados retornados por `/api/state`.
+2. O monitor não pode alterar registros, banco ou estado dos outros módulos.
+3. Eventos `doctype:records-changed` disparam uma atualização imediata do monitor.
+4. Existe polling redundante a cada 10 segundos para reconciliação e recuperação de eventos perdidos.
+5. Requisições simultâneas são serializadas; se chegar novo evento durante uma leitura, uma nova leitura é enfileirada.
+6. Eventos são debounced para evitar tempestade de chamadas.
+7. Uma falha de rede não zera o painel: mantém a última leitura válida e sinaliza `RECONECTANDO`.
+8. Após 30 segundos sem leitura válida, o painel pode sinalizar `DADOS DESATUALIZADOS`.
+9. Ao voltar para uma aba visível, o monitor sincroniza novamente.
+10. O próprio refresh do monitor NÃO deve disparar `doctype:records-changed`, para evitar loop infinito.
+
+### Rotatividade do layout
+O painel rotaciona automaticamente a cada 7 segundos e também oferece navegação manual entre:
+- Pulso do DOC.OS
+- Operação e produtividade
+- Saúde financeira
+- Clientes e renovações
+- Comercial
+- DOC CRM, equipe e segurança
+
+Cada seção possui quatro indicadores derivados dos registros reais. Não inventar números nem preencher lacunas com estimativas não identificadas.
+
+### Termômetros preservados
+Continuam existindo três termômetros:
+- Produtividade do dia
+- Saúde financeira
+- Saúde dos prazos
+
+### Dados monitorados
+Conforme permissão do usuário, o motor consolida registros de:
+- `clients`
+- `accesses`
+- `invoices`
+- `expenses`
+- `tasks`
+- `crm`
+- `team`
+- `products`
+- `quotes`
+- `contracts`
+
+### Segurança e Guardião
+- Asset válido: `public/assets/guardiao-monitor.webp`.
+- NÃO usar `public/assets/guardiao-inline.png` (arquivo inválido/corrompido identificado anteriormente).
+- O Guardião deve interpretar somente dados calculados a partir do estado real disponível.
+
+## Testes do DOC Monitor
+Além da suíte existente:
+- `tests/monitor-engine.test.ts`: garante consolidação dos módulos, imutabilidade dos registros e comportamento sem dados.
+- `tests/e2e/doc-monitor-live.spec.ts`: valida renderização, rotação e atualização imediata por `doctype:records-changed` em desktop/mobile.
+
+Sempre preservar também os testes anteriores de alertas, Guardião, contraste, DOC CRM, configurações e jornada completa.
+
+## Correções estruturais já realizadas
 - Builds quebrados após inclusão dos módulos comerciais.
 - Tipagem global de módulos incompatível.
 - Estado duplicado/dessincronizado entre Clientes 360° e gestão comercial.
-- Menu móvel não fechando ao abrir Produtos/Orçamentos/Contratos.
-- Módulos comerciais renderizados como camada paralela sem sincronizar o topo.
-- Topbar mantendo título anterior (ex.: Financeiro ao abrir Produtos).
+- Menu móvel não fechando em módulos comerciais.
+- Topbar e menu comercial dessincronizados.
 - Mais de um item ativo no menu.
-- Visual branco dos módulos comerciais fora do padrão DOCTYPE.
-- Problemas de acessibilidade no login usados pelos testes E2E.
-- Instabilidade da suíte E2E com banco/servidor compartilhado.
+- Visual comercial fora do padrão DOCTYPE.
 - Asset inválido do Guardião.
+- Textos ocultos por contraste em tabelas, Renovações, DOC CRM, DOC Monitor e hovers.
+- Alinhamento do botão Salvar meta em Configurações.
+- Segurança global de contraste nos estados hover/focus.
 
 ## Testes exigidos antes de qualquer merge em main
-Nunca considerar uma alteração pronta apenas porque compilou localmente. Antes de publicar, exigir:
+Nunca considerar uma alteração pronta apenas porque compilou. Antes de publicar, exigir:
 1. `lint`
 2. `typecheck`
 3. testes unitários
@@ -120,38 +145,42 @@ Nunca considerar uma alteração pronta apenas porque compilou localmente. Antes
 5. E2E Chromium desktop
 6. E2E mobile
 7. preview Vercel `success`
-8. após merge, deploy de produção Vercel `success`
+8. após merge, deployment de produção Vercel `success`
 
-## Jornada comercial crítica que deve continuar coberta
-Produto → Cliente com produto → Orçamento → Contrato → recarregar página → confirmar persistência.
-
-Também validar:
-- Topbar mostra o nome do módulo atual.
+## Jornadas críticas que não podem regredir
+- Produto → Cliente com produto → Orçamento → Contrato → reload → persistência.
+- CRUD e persistência dos módulos nativos.
+- Topbar mostra o módulo atual.
 - Apenas um item ativo no menu.
 - Menu mobile não bloqueia a página.
 - DOC Monitor carrega o Guardião válido.
+- DOC Monitor recebe evento de mudança, refaz `/api/state` e volta ao estado `AO VIVO`.
+- Falha de sincronização do monitor não pode derrubar ou limpar os outros módulos.
 
-## Forma de trabalho para futuras alterações
-- Não editar a `main` diretamente em mudanças estruturais grandes.
-- Criar branch de correção/feature.
+## Forma de trabalho obrigatória
+- Mudanças estruturais em branch própria.
 - Abrir PR.
 - Rodar toda a bateria de CI/E2E.
-- Só fazer merge quando tudo estiver verde.
-- Conferir Vercel após o merge.
-- Não afirmar que algo está pronto enquanto o deploy estiver `pending` ou `error`.
+- Fazer merge apenas verde.
+- Confirmar Vercel após o merge.
+- Não afirmar produção pronta enquanto o deployment estiver `pending` ou `error`.
+- Atualizar este `PROJECT_HANDOFF.md` sempre que houver alteração relevante de arquitetura, integração ou fluxo.
 
 ## Arquivos importantes
 - `src/components/doctype-os.tsx` — shell/navegação e módulos nativos.
-- `src/components/commercial-suite.tsx` — gestão comercial e modais de Produtos/Orçamentos/Contratos.
-- `src/app/commercial-suite.css` — visual comercial DOCTYPE.
-- `src/components/doc-monitor-overlay.tsx` — overlay do DOC Monitor.
-- `src/app/doc-monitor.css` — estilos do DOC Monitor.
-- `src/app/guardiao-inline.css` — integração visual do Guardião no card.
-- `src/lib/types.ts` — tipos de módulos e registros.
-- `src/lib/state.ts` — estado/persistência.
-- `src/app/api/records/*` — CRUD dos registros.
+- `src/components/commercial-suite.tsx` — Produtos/Orçamentos/Contratos.
+- `src/app/commercial-suite.css` — visual comercial.
+- `src/lib/types.ts` — tipos e registros.
+- `src/lib/state.ts` — estado autorizado/persistência.
+- `src/lib/monitor.ts` — alertas do Guardião.
+- `src/lib/monitor-engine.ts` — consolidação de observabilidade.
+- `src/components/realtime-monitor.tsx` — monitor ao vivo resiliente.
+- `src/app/realtime-monitor.css` — UI do monitor ao vivo.
+- `src/components/doc-monitor-overlay.tsx` — overlay do Guardião.
+- `src/app/api/records/*` — CRUD.
 - `tests/e2e/commercial.spec.ts` — jornada comercial.
-- `tests/e2e/journeys.spec.ts` — jornadas gerais do sistema.
+- `tests/e2e/journeys.spec.ts` — jornadas gerais.
+- `tests/e2e/doc-monitor-live.spec.ts` — sincronização/rotação do monitor.
 
 ## Regra de continuidade
-Se outra pessoa, IA ou desenvolvedor assumir este projeto, deve começar por este arquivo e pelo histórico do GitHub. O código versionado no repositório é a fonte de verdade. Preservar identidade DOCTYPE, persistência multiusuário, permissões, DOC Monitor e as jornadas já testadas.
+Se outra pessoa, IA ou desenvolvedor assumir o projeto, deve começar por este arquivo, pelo `CODEX_PROMPT.md` e pelo histórico do GitHub. Preservar identidade DOCTYPE, persistência multiusuário, permissões, DOC Monitor, testes e jornadas já validadas. Nunca substituir a arquitetura existente por uma implementação paralela sem justificar, migrar e testar integralmente.
