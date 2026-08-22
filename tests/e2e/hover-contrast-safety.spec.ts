@@ -22,7 +22,7 @@ test("interactive hover states preserve readable contrast across DOC.OS", async 
   const clientNav = page.getByRole("button", { name: "Clientes 360°", exact: true });
   await clientNav.hover();
   expect(await clientNav.locator("span").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(6, 19, 63)");
-  if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Fechar menu" }).click();
+  if (testInfo.project.name === "mobile") await page.locator(".mobile-close").click();
 
   const quick = page.locator(".dashboard-grid .quick").first();
   await quick.hover();
