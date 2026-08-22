@@ -6,6 +6,7 @@ import "./guardiao.css";
 import "./guardiao-inline.css";
 import "./commercial-suite.css";
 import "./realtime-monitor.css";
+import "./ux-visual-audit.css";
 
 export const metadata: Metadata = {
   title: "DOCTYPE OS — Gestão Interna",

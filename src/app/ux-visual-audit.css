@@ -1,0 +1,127 @@
+/* DOC.OS UX visual audit — typography, contrast and control alignment */
+:root{
+  --ux-text:#172033;
+  --ux-muted:#5d6878;
+  --ux-muted-strong:#465265;
+  --ux-dark-text:#eef4ff;
+  --ux-dark-muted:#aebbd0;
+}
+
+body{font-size:15px;line-height:1.55;color:var(--ux-text)}
+
+/* Global text hierarchy */
+.topbar h1{font-size:25px!important;line-height:1.15!important;letter-spacing:-.25px}
+.topbar p{font-size:13px!important;line-height:1.4!important;color:var(--ux-muted)!important}
+.section-title h2{font-size:19px!important;line-height:1.25!important}
+.section-title p{font-size:13px!important;line-height:1.5!important;color:var(--ux-muted)!important}
+.subheading{font-size:14px!important;line-height:1.4!important}
+.eyebrow{font-size:10.5px!important;line-height:1.35!important;letter-spacing:.9px!important}
+
+/* Sidebar readability */
+.sidebar nav button{font-size:13.5px!important;line-height:1.25!important;min-height:42px!important;padding-top:10px!important;padding-bottom:10px!important}
+.sidebar-user span{font-size:13.5px!important}
+.sidebar-user small,.sidebar-user button,.sidebar footer{font-size:11.5px!important;line-height:1.45!important}
+.nav-count{font-size:10.5px!important;min-width:20px;text-align:center}
+
+/* Cards and descriptive content */
+.kpi-card>span{font-size:11px!important;line-height:1.3!important}
+.kpi-card>strong{font-size:26px!important;line-height:1.1!important}
+.kpi-card>small{font-size:12.5px!important;line-height:1.45!important;color:var(--ux-muted)!important}
+.quick span{font-size:11.5px!important;line-height:1.35!important;color:var(--ux-muted)!important}
+.quick strong{font-size:21px!important;line-height:1.15!important}
+.notice strong,.security-banner strong{font-size:13px!important;line-height:1.35!important}
+.notice span,.security-banner span{font-size:12.5px!important;line-height:1.5!important;color:var(--ux-muted-strong)!important}
+.empty-state h2,.empty-state h3{font-size:16px!important;line-height:1.3!important}
+.empty-state p{font-size:13px!important;line-height:1.5!important;color:var(--ux-muted)!important}
+
+/* Tables */
+.table-wrap table th,.commercial-table th{font-size:10.5px!important;line-height:1.35!important;letter-spacing:.55px!important;color:var(--ux-muted-strong)!important;padding-top:12px!important;padding-bottom:12px!important}
+.table-wrap table td,.commercial-table td{font-size:13px!important;line-height:1.5!important;color:var(--ux-text)!important;padding-top:12px!important;padding-bottom:12px!important}
+.commercial-table td{color:#dfe8f6!important}
+.commercial-table td strong{font-size:13px!important;line-height:1.35!important}
+.commercial-table td small{font-size:11.5px!important;line-height:1.4!important;color:#9caac0!important}
+.badge,.commercial-status{font-size:10.5px!important;line-height:1.2!important;padding:5px 8px!important}
+
+/* Forms and search */
+.field>span,.commercial-form label>span,.commercial-picker>span{font-size:11px!important;line-height:1.35!important;color:var(--ux-muted-strong)!important}
+.commercial-form label>span,.commercial-picker>span{color:#aebbd0!important}
+.field input,.field select,.field textarea,.commercial-form input,.commercial-form select,.commercial-form textarea,.search-box input,.commercial-search input{font-size:14px!important;line-height:1.4!important}
+.search-box,.commercial-search{min-height:44px!important}
+
+/* Buttons — consistent dimensions/alignment */
+.primary,.secondary,.ghost,.danger-button,.table-action,.commercial-actions button,.commercial-modal-actions button{
+  min-height:40px!important;
+  padding:9px 13px!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  vertical-align:middle!important;
+  white-space:nowrap;
+}
+.primary svg,.secondary svg,.ghost svg,.danger-button svg,.table-action svg,.commercial-actions button svg,.commercial-modal-actions button svg{flex:0 0 auto}
+.row-actions{vertical-align:middle!important}
+.row-actions button,.commercial-row-actions button{
+  width:36px!important;
+  height:36px!important;
+  min-width:36px!important;
+  min-height:36px!important;
+  padding:0!important;
+  margin:0 0 0 6px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  vertical-align:middle!important;
+}
+.row-actions,.commercial-row-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important}
+.row-actions button,.commercial-row-actions button{margin:0!important}
+.section-title{align-items:center!important}
+.section-title>div{min-width:0}
+.section-title>.primary,.section-title>.secondary,.section-title>.ghost{flex:0 0 auto}
+.top-actions{align-items:center!important}
+.top-actions>*{align-self:center}
+
+/* Renewals — priority accessibility fix */
+.renewal-grid{gap:14px!important}
+.renewal-card{padding:18px!important;min-height:172px;display:flex;flex-direction:column;align-items:flex-start}
+.renewal-card>span{font-size:11px!important;line-height:1.25!important;padding:6px 9px!important}
+.renewal-card h3{font-size:17px!important;line-height:1.3!important;margin:12px 0 6px!important;color:#06133f!important}
+.renewal-card p{font-size:13px!important;line-height:1.5!important;color:#4e5a6c!important;margin:0 0 14px!important}
+.renewal-card .ghost{margin-top:auto!important;align-self:flex-start}
+
+/* Monitor and dark surfaces */
+.doc-copy h2{font-size:21px!important;line-height:1.25!important}
+.doc-copy>p,.alert-list small,.monitor-principles span{font-size:12.5px!important;line-height:1.5!important;color:var(--ux-dark-muted)!important}
+.alert-list strong,.monitor-principles strong{font-size:13px!important;line-height:1.35!important}
+.all-clear{font-size:12.5px!important;line-height:1.4!important}
+.health-gauge p{font-size:12px!important;line-height:1.5!important;color:#9eacc1!important}
+.health-legend{font-size:11.5px!important}
+
+/* Commercial dark UI */
+.commercial-head h1{font-size:28px!important;line-height:1.2!important}
+.commercial-head p{font-size:13px!important;line-height:1.5!important;color:#a6b3c6!important}
+.commercial-kpis span{font-size:11px!important;line-height:1.35!important;color:#a6b3c6!important}
+.commercial-kpis strong{font-size:25px!important;line-height:1.15!important}
+
+/* Focus visibility */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(255,100,0,.28)!important;outline-offset:2px!important}
+
+@media(max-width:900px){
+  .section-title{align-items:flex-start!important}
+  .section-title>.primary,.section-title>.secondary,.section-title>.ghost{min-height:42px!important}
+}
+@media(max-width:700px){
+  body{font-size:15px!important}
+  .topbar h1{font-size:22px!important}
+  .topbar p{font-size:12.5px!important}
+  .section-title{flex-direction:column!important;align-items:stretch!important}
+  .section-title>.primary,.section-title>.secondary,.section-title>.ghost{width:100%!important;min-height:44px!important}
+  .primary,.secondary,.ghost,.danger-button,.table-action,.commercial-actions button,.commercial-modal-actions button{min-height:44px!important;font-size:13.5px!important}
+  .sidebar nav button{min-height:44px!important;font-size:14px!important}
+  .renewal-card{min-height:178px}
+  .renewal-card h3{font-size:17px!important}
+  .renewal-card p{font-size:13.5px!important}
+  .table-wrap table td,.commercial-table td{font-size:13px!important}
+}
