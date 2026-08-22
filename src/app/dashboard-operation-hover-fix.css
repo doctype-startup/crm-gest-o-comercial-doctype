@@ -1,0 +1,22 @@
+/* Surgical fix: Visão Geral > Operação agora only. Do not apply globally. */
+.os-shell .dashboard-grid > section.card:first-child .quick:hover,
+.os-shell .dashboard-grid > section.card:first-child .quick:focus-visible{
+  background:#fff8f3!important;
+  border-color:#ff9f63!important;
+  color:#06133f!important;
+}
+.os-shell .dashboard-grid > section.card:first-child .quick:hover span,
+.os-shell .dashboard-grid > section.card:first-child .quick:focus-visible span{
+  color:#5d6878!important;
+  opacity:1!important;
+}
+.os-shell .dashboard-grid > section.card:first-child .quick:hover strong,
+.os-shell .dashboard-grid > section.card:first-child .quick:focus-visible strong{
+  color:#06133f!important;
+  opacity:1!important;
+}
+.os-shell .dashboard-grid > section.card:first-child .quick:hover svg,
+.os-shell .dashboard-grid > section.card:first-child .quick:focus-visible svg{
+  color:#ff6400!important;
+  opacity:1!important;
+}

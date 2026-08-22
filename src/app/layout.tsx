@@ -11,6 +11,7 @@ import "./contrast-fix.css";
 import "./doc-crm-security-ux.css";
 import "./doc-monitor-principles-ux.css";
 import "./settings-ux.css";
+import "./dashboard-operation-hover-fix.css";
 
 export const metadata: Metadata = {
   title: "DOCTYPE OS — Gestão Interna",
