@@ -5,7 +5,7 @@ import { listRecords } from "./records";
 import type { ModuleKey, SessionUser } from "./types";
 
 export async function getAppState(user: SessionUser) {
-  const modules: ModuleKey[] = ["clients", "accesses", "invoices", "expenses", "tasks", "crm", "team"];
+  const modules: ModuleKey[] = ["clients", "accesses", "invoices", "expenses", "tasks", "crm", "team", "products", "quotes", "contracts"];
   const allowed = modules.filter((moduleKey) => canRead(user.role, moduleKey));
   const [all, settingsRows] = await Promise.all([
     listRecords(user.orgId),
