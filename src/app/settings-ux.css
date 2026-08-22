@@ -1,0 +1,30 @@
+/* Configurações — alinhamento e consistência visual */
+.os-shell .settings-grid > .card:first-child{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:14px!important;
+}
+.os-shell .settings-grid > .card:first-child .section-title{
+  margin-bottom:0!important;
+}
+.os-shell .settings-grid > .card:first-child .field{
+  width:100%!important;
+  margin:0!important;
+}
+.os-shell .settings-grid > .card:first-child .field input{
+  width:100%!important;
+  min-height:44px!important;
+}
+.os-shell .settings-grid > .card:first-child > .primary{
+  align-self:flex-start!important;
+  min-width:132px!important;
+  min-height:40px!important;
+  margin:0!important;
+}
+@media(max-width:700px){
+  .os-shell .settings-grid > .card:first-child > .primary{
+    width:100%!important;
+    min-height:44px!important;
+  }
+}
