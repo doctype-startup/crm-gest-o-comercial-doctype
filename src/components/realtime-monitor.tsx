@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Activity, CalendarClock, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, RefreshCw, ShieldCheck } from "lucide-react";
 import { buildMonitorSnapshot } from "@/lib/monitor-engine";
@@ -89,13 +89,13 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   const syncStateRef = useRef<SyncState>("live");
   const errorRef = useRef("");
 
-  const setAndPublishSync = useCallback((next: SyncState) => {
+  function setAndPublishSync(next: SyncState) {
     syncStateRef.current = next;
     setSyncState(next);
     publishSyncState(next);
-  }, []);
+  }
 
-  const performRefresh = useCallback(async () => {
+  async function performRefresh() {
     if (inflight.current) {
       queued.current = true;
       return inflight.current;
@@ -135,15 +135,15 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
     })();
     inflight.current = job;
     return job;
-  }, [setAndPublishSync]);
+  }
 
-  const scheduleRefresh = useCallback(() => {
+  function scheduleRefresh() {
     if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => {
       debounceRef.current = null;
       void performRefresh();
     }, 120);
-  }, [performRefresh]);
+  }
 
   useEffect(() => {
     const locate = () => setTarget(document.querySelector(".monitor-layout"));
@@ -176,7 +176,9 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
       if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
-  }, [performRefresh, scheduleRefresh, setAndPublishSync]);
+    // This subscription intentionally mounts once; mutable monitor state is read through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const snapshot = useMemo(() => buildMonitorSnapshot(records), [records]);
   const metrics = useMemo(() => computeMetrics(records), [records]);
