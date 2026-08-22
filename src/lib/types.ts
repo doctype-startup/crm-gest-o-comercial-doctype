@@ -8,7 +8,10 @@ export type ModuleKey =
   | "expenses"
   | "tasks"
   | "crm"
-  | "team";
+  | "team"
+  | "products"
+  | "quotes"
+  | "contracts";
 
 export interface OrganizationsTable {
   id: string;
