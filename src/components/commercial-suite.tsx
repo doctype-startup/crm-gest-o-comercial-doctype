@@ -45,8 +45,14 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     return payload;
   }
 
+  function closeMobileSidebar() {
+    if (!document.querySelector(".sidebar.open")) return;
+    document.querySelector<HTMLButtonElement>(".mobile-close")?.click();
+  }
+
   async function openCommercial(next: CommercialView) {
     setError("");
+    closeMobileSidebar();
     await refresh();
     setView(next);
     setSearch("");
