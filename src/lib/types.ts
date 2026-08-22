@@ -12,6 +12,7 @@ export type ModuleKey =
 
 export type CommercialModuleKey = "products" | "quotes" | "contracts";
 export type RecordModuleKey = ModuleKey | CommercialModuleKey;
+export type RecordValue = string | number | boolean | string[] | null | undefined;
 
 export interface OrganizationsTable {
   id: string;
@@ -89,7 +90,7 @@ export interface SessionUser {
 export interface AppRecord {
   id: string;
   module: RecordModuleKey;
-  data: Record<string, unknown>;
+  data: Record<string, RecordValue>;
   createdAt: string;
   updatedAt: string;
 }
