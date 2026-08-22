@@ -1,11 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-test("dashboard table text stays visible on dark workspace", async ({ page }) => {
+async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel("E-mail").fill("admin@doctype.local");
-  await page.getByLabel("Senha").fill("Doctype@12345");
-  await page.getByRole("button", { name: /entrar/i }).click();
-  await expect(page).toHaveURL(/\/os/);
+  await page.getByLabel("Senha").fill("Doctype@2026");
+  await page.getByRole("button", { name: "Entrar no DOCTYPE OS" }).click();
+  await expect(page.getByRole("heading", { name: "Visão Geral" })).toBeVisible();
+}
+
+async function openNav(page: Page, testInfo: TestInfo, label: string) {
+  if (testInfo.project.name === "mobile") {
+    await page.getByRole("button", { name: "Abrir menu" }).click();
+  }
+  await page.getByRole("button", { name: label, exact: true }).click();
+}
+
+test("dashboard table text stays visible on dark workspace", async ({ page }) => {
+  await login(page);
 
   const cells = page.locator(".dashboard-grid .table-wrap tbody td");
   const count = await cells.count();
@@ -21,12 +32,9 @@ test("dashboard table text stays visible on dark workspace", async ({ page }) =>
   }
 });
 
-test("renewal cards and status text keep explicit contrast", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("E-mail").fill("admin@doctype.local");
-  await page.getByLabel("Senha").fill("Doctype@12345");
-  await page.getByRole("button", { name: /entrar/i }).click();
-  await page.getByRole("button", { name: "Renovações" }).click();
+test("renewal cards and status text keep explicit contrast", async ({ page }, testInfo) => {
+  await login(page);
+  await openNav(page, testInfo, "Renovações");
 
   const card = page.locator(".renewal-card").first();
   if (await card.isVisible()) {
