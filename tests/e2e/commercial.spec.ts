@@ -23,6 +23,7 @@ async function expectCommercialShell(page: Page, label: "Produtos" | "Orçamento
   await expect(page.getByRole("button", { name: label, exact: true })).toHaveClass(/active/);
   await expect(page.locator(".commercial-page")).toBeVisible();
   await expect(page.locator(".commercial-page")).toHaveCSS("color", "rgb(247, 249, 255)");
+  await expect(page.locator(".commercial-head h1")).toHaveText(label);
 }
 
 async function expectCommercialTableValue(page: Page, value: string) {
@@ -35,7 +36,6 @@ test.describe("gestão comercial", () => {
 
     await openNav(page, testInfo, "Produtos");
     await expectCommercialShell(page, "Produtos");
-    await expect(page.getByRole("heading", { name: "Produtos", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Produto", exact: true }).click();
     let modal = page.locator(".commercial-modal");
     await modal.getByLabel("Nome do produto *").fill("DOC CRM E2E");
