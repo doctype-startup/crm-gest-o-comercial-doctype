@@ -10,6 +10,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 90_000,
   fullyParallel: false,
+  workers: 1,
   retries: 0,
   reporter: "line",
   use: { baseURL: "http://127.0.0.1:3010", trace: "retain-on-failure", screenshot: "only-on-failure", launchOptions: { executablePath, args: chromium.args } },
