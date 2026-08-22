@@ -51,7 +51,7 @@ export async function deleteRecord(user: SessionUser, id: string, module: Module
   let cascaded = 0;
   const deleted = await db.transaction().execute(async (trx) => {
     if (module === "clients") {
-      const related = await trx.selectFrom("records").select(["id", "data"]).where("org_id", "=", user.orgId).where("module", "in", ["accesses", "invoices", "tasks", "crm"]).execute();
+      const related = await trx.selectFrom("records").select(["id", "data"]).where("org_id", "=", user.orgId).where("module", "in", ["accesses", "invoices", "tasks", "crm", "quotes", "contracts"]).execute();
       const ids = related.filter((row) => JSON.parse(row.data).clientId === id).map((row) => row.id);
       if (ids.length) { await trx.deleteFrom("records").where("id", "in", ids).execute(); cascaded = ids.length; }
     }
