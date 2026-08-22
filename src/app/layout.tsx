@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// Production checkpoint: keep the stable application tree deployable after rollback.
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="pt-BR"><body>{children}</body></html>;
 }
