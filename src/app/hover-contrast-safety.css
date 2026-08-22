@@ -1,0 +1,170 @@
+/* Global hover contrast safety for DOC.OS interactive surfaces.
+   Purpose: preserve readability whenever hover/focus changes a background. */
+
+/* Core quick action cards */
+.os-shell .quick:hover,
+.os-shell .quick:focus-visible{
+  background:#fff8f3!important;
+  border-color:#ff9f63!important;
+  color:#06133f!important;
+}
+.os-shell .quick:hover span,
+.os-shell .quick:focus-visible span{
+  color:#5d6878!important;
+  opacity:1!important;
+}
+.os-shell .quick:hover strong,
+.os-shell .quick:focus-visible strong{
+  color:#06133f!important;
+  opacity:1!important;
+}
+.os-shell .quick:hover svg,
+.os-shell .quick:focus-visible svg{
+  color:#ff6400!important;
+  opacity:1!important;
+}
+
+/* Core dark tables */
+.os-shell .table-wrap tbody tr:hover,
+.os-shell .table-wrap tbody tr:focus-within{
+  background:#102747!important;
+}
+.os-shell .table-wrap tbody tr:hover td,
+.os-shell .table-wrap tbody tr:focus-within td{
+  color:#fff!important;
+  background:transparent!important;
+  opacity:1!important;
+}
+.os-shell .table-wrap tbody tr:hover td strong,
+.os-shell .table-wrap tbody tr:focus-within td strong{
+  color:#fff!important;
+  opacity:1!important;
+}
+.os-shell .table-wrap tbody tr:hover td small,
+.os-shell .table-wrap tbody tr:focus-within td small{
+  color:#c7d3e5!important;
+  opacity:1!important;
+}
+
+/* Sidebar navigation */
+.os-shell .sidebar nav button:hover,
+.os-shell .sidebar nav button:focus-visible{
+  background:#fff!important;
+  color:#06133f!important;
+}
+.os-shell .sidebar nav button:hover span,
+.os-shell .sidebar nav button:hover svg,
+.os-shell .sidebar nav button:focus-visible span,
+.os-shell .sidebar nav button:focus-visible svg{
+  color:#06133f!important;
+  opacity:1!important;
+}
+.os-shell .sidebar nav button:hover .nav-count,
+.os-shell .sidebar nav button:focus-visible .nav-count{
+  color:#fff!important;
+  background:#ff6400!important;
+}
+
+/* Standard action buttons */
+.os-shell .primary:hover,
+.os-shell .primary:focus-visible{
+  color:#fff!important;
+}
+.os-shell .secondary:hover,
+.os-shell .secondary:focus-visible{
+  color:#fff!important;
+}
+.os-shell .ghost:hover,
+.os-shell .ghost:focus-visible{
+  color:#06133f!important;
+  background:#fff8f3!important;
+  border-color:#ffb17d!important;
+}
+.os-shell .row-actions button:hover,
+.os-shell .row-actions button:focus-visible,
+.os-shell .table-action:hover,
+.os-shell .table-action:focus-visible{
+  color:#fff!important;
+  background:#16345f!important;
+}
+.os-shell .row-actions button.delete:hover,
+.os-shell .row-actions button.delete:focus-visible{
+  color:#ffb0b7!important;
+  background:#3a1f2b!important;
+}
+
+/* DOC Monitor alerts */
+.os-shell .alert-list button:hover,
+.os-shell .alert-list button:focus-visible{
+  background:rgba(255,255,255,.15)!important;
+  color:#fff!important;
+}
+.os-shell .alert-list button:hover strong,
+.os-shell .alert-list button:focus-visible strong{
+  color:#fff!important;
+  opacity:1!important;
+}
+.os-shell .alert-list button:hover small,
+.os-shell .alert-list button:focus-visible small{
+  color:#d7e3f3!important;
+  opacity:1!important;
+}
+.os-shell .alert-list button:hover svg,
+.os-shell .alert-list button:focus-visible svg{
+  color:#fff!important;
+  opacity:1!important;
+}
+
+/* Commercial tables */
+.commercial-suite .commercial-table tbody tr:hover,
+.commercial-suite .commercial-table tbody tr:focus-within{
+  background:#102a50!important;
+}
+.commercial-suite .commercial-table tbody tr:hover td,
+.commercial-suite .commercial-table tbody tr:focus-within td{
+  color:#f5f8ff!important;
+  opacity:1!important;
+}
+.commercial-suite .commercial-table tbody tr:hover td strong,
+.commercial-suite .commercial-table tbody tr:focus-within td strong{
+  color:#fff!important;
+  opacity:1!important;
+}
+.commercial-suite .commercial-table tbody tr:hover td small,
+.commercial-suite .commercial-table tbody tr:focus-within td small{
+  color:#b8c5d8!important;
+  opacity:1!important;
+}
+
+/* Commercial action controls */
+.commercial-suite .commercial-row-actions button:hover,
+.commercial-suite .commercial-row-actions button:focus-visible{
+  color:#ffad79!important;
+  background:#183255!important;
+  border-color:#ff8c45!important;
+}
+.commercial-suite .commercial-row-actions .danger:hover,
+.commercial-suite .commercial-row-actions .danger:focus-visible{
+  color:#ff9aa3!important;
+  background:#351b29!important;
+  border-color:#8f3343!important;
+}
+.commercial-suite .commercial-picker button:hover,
+.commercial-suite .commercial-picker button:focus-visible{
+  color:#fff!important;
+  background:#15305a!important;
+  border-color:#ff8c45!important;
+}
+.commercial-suite .commercial-picker button:hover strong,
+.commercial-suite .commercial-picker button:focus-visible strong{
+  color:#fff!important;
+}
+.commercial-suite .commercial-picker button:hover small,
+.commercial-suite .commercial-picker button:focus-visible small{
+  color:#c5d1e3!important;
+}
+.commercial-suite .contract-download:hover,
+.commercial-suite .contract-download:focus-visible{
+  color:#ffad79!important;
+  opacity:1!important;
+}
