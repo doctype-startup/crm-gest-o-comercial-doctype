@@ -73,17 +73,18 @@ O DOC Monitor funciona como camada de observabilidade do DOC.OS e nunca como est
 ### Princípios obrigatórios
 1. O monitor somente lê os registros autorizados retornados por `/api/state`.
 2. O monitor não pode alterar registros, banco ou estado operacional dos outros módulos.
-3. Eventos `doctype:records-changed` disparam uma atualização imediata do monitor.
-4. Existe polling redundante a cada 10 segundos para reconciliação, multiusuário e recuperação de eventos perdidos.
+3. Eventos `doctype:records-changed` disparam uma atualização imediata do monitor quando o módulo emissor os publica.
+4. Existe reconciliação redundante via polling a cada 3 segundos para cobrir módulos sem evento, alterações multiusuário e recuperação de eventos perdidos.
 5. Requisições simultâneas são serializadas; se chegar novo evento durante uma leitura, uma nova leitura é enfileirada.
 6. Eventos são debounced para evitar tempestade de chamadas.
 7. Uma falha de rede não zera o painel: mantém a última leitura válida e sinaliza `RECONECTANDO`.
-8. Após 30 segundos sem leitura válida, o painel pode sinalizar `DADOS DESATUALIZADOS`.
+8. Após 15 segundos sem leitura válida, o painel pode sinalizar `DADOS DESATUALIZADOS`.
 9. Ao voltar para uma aba visível, o monitor sincroniza novamente.
 10. Toda leitura válida publica `doctype:monitor-state`; painel, contador de atenção e balão consomem o mesmo pacote.
 11. O estado de conexão é publicado em `doctype:monitor-sync` (`live`, `syncing`, `retrying`, `stale`).
 12. Quando o polling identifica mudança real nos registros, publica `doctype:records-changed` com `detail.source = "monitor"` para reconciliar os componentes nativos. O próprio monitor ignora eventos com essa origem para impedir loop infinito.
 13. O contador do balão NÃO soma tarefas/renovações por fora. Ele usa `alerts.length`, a mesma fonte exibida no card nativo de pontos de atenção, evitando dupla contagem.
+14. O ciclo de sincronização deve permanecer montado uma única vez. `lastUpdate`, `syncState` e erro de sincronização são acompanhados por refs; mudanças visuais nesses estados não podem desmontar o efeito nem abortar a própria requisição em andamento.
 
 ### Pontos de atenção em tempo real
 - O número exibido no selo do Guardião é dinâmico; não existe valor fixo como `3`.
@@ -91,6 +92,7 @@ O DOC Monitor funciona como camada de observabilidade do DOC.OS e nunca como est
 - Ao criar, editar ou resolver uma situação que gere/remova alerta, a contagem deve refletir a nova leitura automaticamente.
 - O texto `X pontos pedindo atenção` dentro do drawer deve sempre coincidir com o selo.
 - O card nativo `X pontos pedem atenção` é reconciliado pelo mesmo ciclo de estado via `doctype:records-changed`.
+- O item lateral `DOC Monitor` pode incluir a contagem no nome acessível; testes não devem exigir o nome exato sem considerar esse contador.
 
 ### Rotatividade do layout
 O painel principal rotaciona automaticamente a cada 7 segundos e também oferece navegação manual entre:
@@ -152,6 +154,7 @@ Sempre preservar também os testes anteriores de alertas, Guardião, contraste, 
 - Segurança global de contraste nos estados hover/focus.
 - Contagem fixa/dessincronizada no balão do DOC Monitor.
 - Dupla contagem potencial de alertas + tarefas + renovações no selo do Guardião.
+- Ciclo de polling que podia abortar a própria requisição ao trocar de `live` para `syncing`.
 
 ## Testes exigidos antes de qualquer merge em main
 Nunca considerar uma alteração pronta apenas porque compilou. Antes de publicar, exigir:
