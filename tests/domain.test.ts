@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildAlerts } from "@/lib/monitor";
 import { canRead, canWrite, moduleSchemas } from "@/lib/modules";
-import type { AppRecord, ModuleKey } from "@/lib/types";
+import type { AppRecord, RecordModuleKey } from "@/lib/types";
 
-const record = (module: ModuleKey, id: string, data: Record<string, unknown>): AppRecord => ({ id, module, data, createdAt: "2026-08-20T00:00:00Z", updatedAt: "2026-08-20T00:00:00Z" });
+const record = (module: RecordModuleKey, id: string, data: Record<string, unknown>): AppRecord => ({ id, module, data, createdAt: "2026-08-20T00:00:00Z", updatedAt: "2026-08-20T00:00:00Z" });
 
 describe("permissões e validação", () => {
   it("isola módulos sensíveis por função", () => {
@@ -11,12 +11,28 @@ describe("permissões e validação", () => {
     expect(canRead("FINANCE", "invoices")).toBe(true);
     expect(canRead("FINANCE", "accesses")).toBe(false);
     expect(canWrite("OPERATIONS", "invoices")).toBe(false);
+    expect(canRead("OPERATIONS", "products")).toBe(true);
+    expect(canWrite("FINANCE", "quotes")).toBe(true);
   });
 
   it("valida dados e remove campos de senha não previstos", () => {
     const parsed = moduleSchemas.accesses.parse({ clientId: "c1", platform: "Meta", password: "segredo", status: "OK" });
     expect(parsed.password).toBeUndefined();
     expect(() => moduleSchemas.clients.parse({ name: "", dueDay: 99 })).toThrow();
+  });
+
+  it("valida a jornada comercial produto, cliente, orçamento e contrato", () => {
+    const product = moduleSchemas.products.parse({ name: "DOC CRM Pro", sku: "CRM-PRO", category: "CRM", price: 1490, cost: 390, billingType: "Mensal", status: "Ativo" });
+    expect(product.price).toBe(1490);
+
+    const client = moduleSchemas.clients.parse({ name: "Cliente Comercial", services: "CRM", productIds: ["p1"], dueDay: 10, status: "Ativo" });
+    expect(client.productIds).toEqual(["p1"]);
+
+    const quote = moduleSchemas.quotes.parse({ number: "ORC-001", clientId: "c1", title: "Implantação DOC CRM", productIds: ["p1"], subtotal: 1490, discount: 90, total: 1400, status: "Aprovado" });
+    expect(quote.total).toBe(1400);
+
+    const contract = moduleSchemas.contracts.parse({ number: "CTR-001", clientId: "c1", quoteId: "q1", title: "Contrato DOC CRM", productIds: ["p1"], value: 1400, signedAt: "2026-08-21", status: "Assinado", fileName: "contrato.pdf", fileDataUrl: "data:application/pdf;base64,VEVTVEU=" });
+    expect(contract.status).toBe("Assinado");
   });
 });
 

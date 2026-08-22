@@ -11,7 +11,7 @@ import {
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
 
 type View = "dashboard" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
-type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "url" | "email"; options?: string[]; required?: boolean; full?: boolean };
+type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email"; options?: string[]; required?: boolean; full?: boolean };
 type Config = { singular: string; title: string; fields: Field[]; columns: { key: string; label: string; format?: "money" | "badge" | "client" | "boolean" | "date" }[]; defaults: Record<string, unknown> };
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
 type ManagedUser = { id: string; name: string; email: string; role: Role; active: boolean; mustChangePassword: boolean };
@@ -22,6 +22,7 @@ const configs: Record<ModuleKey, Config> = {
     fields: [
       { key: "name", label: "Nome do cliente", required: true }, { key: "document", label: "CPF/CNPJ" },
       { key: "contact", label: "Contato principal" }, { key: "services", label: "Serviços contratados", required: true },
+      { key: "productIds", label: "Produtos contratados", type: "products", full: true },
       { key: "monthly", label: "Mensalidade", type: "number" }, { key: "dueDay", label: "Dia do vencimento", type: "number" },
       { key: "startDate", label: "Início", type: "date" }, { key: "renewal", label: "Renovação", type: "date" },
       { key: "noticeDays", label: "Aviso prévio (dias)", type: "number" }, { key: "responsible", label: "Responsável DOCTYPE" },
@@ -29,7 +30,7 @@ const configs: Record<ModuleKey, Config> = {
       { key: "observations", label: "Observações", type: "textarea", full: true },
     ],
     columns: [{ key: "name", label: "Cliente" }, { key: "services", label: "Serviços" }, { key: "monthly", label: "Mensalidade", format: "money" }, { key: "renewal", label: "Renovação", format: "date" }, { key: "health", label: "Saúde", format: "badge" }, { key: "status", label: "Status", format: "badge" }],
-    defaults: { monthly: 0, dueDay: 10, noticeDays: 30, health: "Saudável", status: "Ativo" },
+    defaults: { productIds: [], monthly: 0, dueDay: 10, noticeDays: 30, health: "Saudável", status: "Ativo" },
   },
   accesses: {
     singular: "acesso", title: "Acessos dos clientes",
@@ -88,6 +89,7 @@ const money = (value: unknown) => Number(value || 0).toLocaleString("pt-BR", { s
 const dateLabel = (value: unknown) => value ? new Date(`${String(value)}T12:00:00`).toLocaleDateString("pt-BR") : "—";
 const number = (value: unknown) => Number(value || 0);
 const text = (value: unknown) => String(value ?? "");
+const stringArray = (value: unknown) => Array.isArray(value) ? value.map(String) : [];
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -118,11 +120,18 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
     finally { setLoading(false); }
   }, []);
 
+  useEffect(() => {
+    const syncRecords = () => { void refresh(true); };
+    window.addEventListener("doctype:records-changed", syncRecords);
+    return () => window.removeEventListener("doctype:records-changed", syncRecords);
+  }, [refresh]);
+
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(""), 3500); return () => clearTimeout(timer); }, [toast]);
 
   const user = state.user;
   const records = state.records;
   const clients = records.filter((r) => r.module === "clients");
+  const products = records.filter((r) => r.module === "products");
   const clientName = (id: unknown) => text(clients.find((c) => c.id === id)?.data.name) || "—";
   const byModule = (module: ModuleKey) => records.filter((r) => r.module === module);
 
@@ -186,8 +195,8 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
           )}
         </section>
       </main>
-      {modal && <RecordModal module={modal.module} record={modal.record} clients={clients} close={() => setModal(null)} save={saveRecord} />}
-      {confirmDelete && <ConfirmModal title="Excluir registro?" text={confirmDelete.module === "clients" ? "Esta ação removerá o cliente e os acessos, faturas, tarefas e assinaturas vinculados. A exclusão ficará registrada na auditoria." : `Esta ação removerá ${configs[confirmDelete.module].singular} da base compartilhada e ficará registrada na auditoria.`} close={() => setConfirmDelete(null)} confirm={removeRecord} />}
+      {modal && <RecordModal module={modal.module} record={modal.record} clients={clients} products={products} close={() => setModal(null)} save={saveRecord} />}
+      {confirmDelete && <ConfirmModal title="Excluir registro?" text={confirmDelete.module === "clients" ? "Esta ação removerá o cliente e os acessos, faturas, tarefas, assinaturas, orçamentos e contratos vinculados. A exclusão ficará registrada na auditoria." : `Esta ação removerá ${configs[confirmDelete.module].singular} da base compartilhada e ficará registrada na auditoria.`} close={() => setConfirmDelete(null)} confirm={removeRecord} />}
       {accountPassword && <PasswordModal close={() => setAccountPassword(false)} saved={() => { setAccountPassword(false); notify("Senha alterada com segurança."); void refresh(true); }} />}
       {toast && <div className="toast" role="status"><ShieldCheck size={18} />{toast}</div>}
     </div>
@@ -270,15 +279,19 @@ function SettingsView({ goal, onSaved, downloadBackup, importRef, restoreBackup,
   return <div className="settings-grid"><section className="card"><SectionTitle title="Meta DOC CRM" subtitle="Objetivo gerencial de receita recorrente" /><label className="field"><span>MRR desejado</span><input type="number" min="0" value={crmGoal} onChange={(e) => setCrmGoal(Number(e.target.value))} /></label><button className="primary" onClick={() => saveGoal().catch((e) => setUsersError(e.message))}>Salvar meta</button></section><section className="card"><SectionTitle title="Backup e restauração" subtitle="Cópia completa dos dados operacionais" /><div className="button-stack"><button className="secondary" onClick={() => downloadBackup().catch((e) => setUsersError(e.message))}><Download size={17} /> Exportar backup JSON</button><button className="ghost" onClick={() => importRef.current?.click()}><ArchiveRestore size={17} /> Restaurar backup</button><input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => { const file = e.target.files?.[0]; if (file) restoreBackup(file).catch((err) => setUsersError(err.message)); e.target.value = ""; }} /></div></section><section className="card full-card"><SectionTitle title="Usuários e permissões" subtitle="Acesso separado por função" action={<button className="primary" onClick={() => setUserModal("new")}><Plus size={17} /> Novo usuário</button>} />{usersError && <div className="form-error">{usersError}</div>}<CompactTable headers={["Nome", "E-mail", "Permissão", "Status", "Ação"]} rows={users.map((managed) => [managed.name, managed.email, managed.role === "CEO_ADMIN" ? "CEO / Admin" : managed.role === "FINANCE" ? "Financeiro" : "Operação", <Badge key={`b-${managed.id}`} value={managed.active ? "Ativo" : "Inativo"} />, <button key={`e-${managed.id}`} className="table-action" onClick={() => setUserModal(managed)}><Pencil size={15} /> Editar</button>])} /></section><section className="card full-card"><SectionTitle title="Segurança da conta" subtitle={`Sessão atual: ${user.email}`} /><button className="ghost" onClick={() => setPasswordModal(true)}><KeyRound size={17} /> Alterar minha senha</button></section>{userModal && <UserModal value={userModal} close={() => setUserModal(null)} saved={async () => { setUserModal(null); notify("Usuário salvo."); await loadUsers(); }} />}{passwordModal && <PasswordModal close={() => setPasswordModal(false)} saved={() => { setPasswordModal(false); notify("Senha alterada com segurança."); }} />}</div>;
 }
 
-function RecordModal({ module, record, clients, close, save }: { module: ModuleKey; record?: AppRecord; clients: AppRecord[]; close: () => void; save: (module: ModuleKey, data: Record<string, unknown>, id?: string) => Promise<void> }) {
+function RecordModal({ module, record, clients, products, close, save }: { module: ModuleKey; record?: AppRecord; clients: AppRecord[]; products: AppRecord[]; close: () => void; save: (module: ModuleKey, data: Record<string, unknown>, id?: string) => Promise<void> }) {
   const config = configs[module]; const [data, setData] = useState<Record<string, unknown>>({ ...config.defaults, ...(record?.data || {}) }); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const article = ["fatura", "despesa", "tarefa", "assinatura"].includes(config.singular) ? "Nova" : "Novo";
   async function submit(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await save(module, data, record?.id); } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível salvar."); setBusy(false); } }
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-head"><div><span className="eyebrow">BASE COMPARTILHADA</span><h2 id="modal-title">{record ? "Editar" : article} {config.singular}</h2></div><button aria-label="Fechar" onClick={close}><X /></button></div><form onSubmit={submit}><div className="form-grid">{config.fields.map((field) => <FieldControl key={field.key} field={field} value={data[field.key]} clients={clients} setValue={(value) => setData((current) => ({ ...current, [field.key]: value }))} />)}</div>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button type="button" className="ghost" onClick={close}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button></div></form></div></div>;
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div className="modal-head"><div><span className="eyebrow">BASE COMPARTILHADA</span><h2 id="modal-title">{record ? "Editar" : article} {config.singular}</h2></div><button aria-label="Fechar" onClick={close}><X /></button></div><form onSubmit={submit}><div className="form-grid">{config.fields.map((field) => <FieldControl key={field.key} field={field} value={data[field.key]} clients={clients} products={products} setValue={(value) => setData((current) => ({ ...current, [field.key]: value }))} />)}</div>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button type="button" className="ghost" onClick={close}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button></div></form></div></div>;
 }
 
-function FieldControl({ field, value, clients, setValue }: { field: Field; value: unknown; clients: AppRecord[]; setValue: (v: unknown) => void }) {
+function FieldControl({ field, value, clients, products, setValue }: { field: Field; value: unknown; clients: AppRecord[]; products: AppRecord[]; setValue: (v: unknown) => void }) {
   if (field.type === "checkbox") return <label className={`field checkbox ${field.full ? "full" : ""}`}><input type="checkbox" checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} /><span>{field.label}</span></label>;
+  if (field.type === "products") {
+    const selected = stringArray(value);
+    return <div className={`field commercial-picker ${field.full ? "full" : ""}`}><span>{field.label}</span><div>{products.filter((product) => product.data.status === "Ativo").map((product) => { const active = selected.includes(product.id); return <button type="button" key={product.id} className={active ? "selected" : ""} onClick={() => setValue(active ? selected.filter((id) => id !== product.id) : [...selected, product.id])}><strong>{text(product.data.name)}</strong><small>{money(product.data.price)}</small></button>; })}{!products.length && <em>Cadastre um produto para vinculá-lo ao cliente.</em>}</div></div>;
+  }
   return <label className={`field ${field.full ? "full" : ""}`}><span>{field.label}{field.required && " *"}</span>{field.type === "textarea" ? <textarea value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)} /> : field.type === "select" ? <select value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)}>{field.options?.map((option) => <option key={option}>{option}</option>)}</select> : field.type === "client" ? <select value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)}><option value="">Sem cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{text(client.data.name)}</option>)}</select> : <input type={field.type || "text"} step={field.type === "number" ? "0.01" : undefined} min={field.type === "number" ? "0" : undefined} value={text(value)} required={field.required} onChange={(e) => setValue(field.type === "number" ? Number(e.target.value) : e.target.value)} />}</label>;
 }
 

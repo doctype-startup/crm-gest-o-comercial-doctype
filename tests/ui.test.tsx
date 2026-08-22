@@ -53,7 +53,7 @@ describe("jornadas visíveis do DOCTYPE OS", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/records/c1", expect.objectContaining({ method: "PUT" })));
 
     await actor.click(screen.getByRole("button", { name: "Excluir cliente" }));
-    expect(screen.getByText(/acessos, faturas, tarefas e assinaturas vinculados/)).toBeTruthy();
+    expect(screen.getByText(/acessos, faturas, tarefas, assinaturas, orçamentos e contratos vinculados/)).toBeTruthy();
     await actor.click(screen.getByRole("button", { name: "Excluir" }));
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith("/api/records/c1?module=clients", expect.objectContaining({ method: "DELETE" })));
   });
