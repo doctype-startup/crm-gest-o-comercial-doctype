@@ -1,0 +1,97 @@
+/* DOC CRM + provisional password banner readability */
+
+/* DOC CRM KPI/meta area */
+.os-shell .goal-card{
+  background:linear-gradient(135deg,#0b2145,#0a1d3c)!important;
+  border:1px solid rgba(126,151,193,.24)!important;
+  color:#f7f9ff!important;
+  min-height:96px!important;
+  padding:18px 20px!important;
+  box-shadow:0 14px 36px rgba(2,10,28,.2)!important;
+}
+.os-shell .goal-card>div:first-child span{
+  color:#b8c5d8!important;
+  font-size:11.5px!important;
+  line-height:1.35!important;
+  font-weight:800!important;
+  letter-spacing:.5px!important;
+}
+.os-shell .goal-card>div:first-child strong{
+  color:#fff!important;
+  font-size:18px!important;
+  line-height:1.25!important;
+  font-weight:850!important;
+}
+.os-shell .goal-card>b{
+  color:#fff!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+.os-shell .goal-card .progress{
+  height:10px!important;
+  background:#07152f!important;
+  border:1px solid rgba(126,151,193,.18)!important;
+}
+.os-shell .goal-card .progress i{
+  background:linear-gradient(90deg,#ff6400,#ff9a5e)!important;
+  box-shadow:0 0 16px rgba(255,100,0,.28)!important;
+}
+
+/* DOC CRM table and section readability */
+.os-shell .stack .section-title h2{color:#fff!important}
+.os-shell .stack .section-title p{color:#b8c5d8!important}
+.os-shell .table-wrap td{color:#eaf1fb!important}
+.os-shell .table-wrap th{color:#b7c4d8!important}
+
+/* Provisional password banner — explicit dark-theme contrast */
+.os-shell .security-banner{
+  background:linear-gradient(135deg,#182742,#14213a)!important;
+  border:1px solid rgba(255,166,99,.35)!important;
+  border-left:4px solid #ff7a21!important;
+  color:#fff!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.18)!important;
+  padding:14px 16px!important;
+  min-height:64px!important;
+}
+.os-shell .security-banner>svg{
+  color:#ff8b3d!important;
+  flex:0 0 auto!important;
+}
+.os-shell .security-banner strong{
+  color:#fff!important;
+  font-size:13.5px!important;
+  line-height:1.35!important;
+  font-weight:850!important;
+}
+.os-shell .security-banner span{
+  color:#d6dfec!important;
+  font-size:12.5px!important;
+  line-height:1.5!important;
+}
+.os-shell .security-banner button{
+  margin-left:auto!important;
+  min-height:38px!important;
+  padding:8px 12px!important;
+  border:1px solid rgba(255,139,61,.55)!important;
+  border-radius:9px!important;
+  background:rgba(255,100,0,.12)!important;
+  color:#ffb17d!important;
+  font-size:12px!important;
+  font-weight:850!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  white-space:nowrap!important;
+}
+.os-shell .security-banner button:hover{
+  background:#ff6400!important;
+  color:#fff!important;
+  border-color:#ff6400!important;
+}
+
+@media(max-width:700px){
+  .os-shell .goal-card{grid-template-columns:1fr!important;gap:10px!important;align-items:stretch!important}
+  .os-shell .goal-card>b{text-align:left!important}
+  .os-shell .security-banner{align-items:flex-start!important;flex-wrap:wrap!important}
+  .os-shell .security-banner button{width:100%!important;margin-left:0!important;min-height:44px!important}
+}
