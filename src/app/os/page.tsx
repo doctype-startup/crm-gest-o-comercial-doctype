@@ -13,5 +13,5 @@ export default async function OSPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   const state = await getAppState(session);
-  return <><DoctypeOS initialState={state} /><CommercialSuite initialState={state} /><RealtimeMonitor /><DocMonitorOverlay state={state} /></>;
+  return <><DoctypeOS initialState={state} /><CommercialSuite initialState={state} /><RealtimeMonitor initialRecords={state.records} /><DocMonitorOverlay state={state} /></>;
 }
