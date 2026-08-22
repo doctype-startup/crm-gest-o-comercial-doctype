@@ -13,6 +13,7 @@ import "./doc-monitor-principles-ux.css";
 import "./settings-ux.css";
 import "./dashboard-operation-hover-fix.css";
 import "./hover-contrast-safety.css";
+import "./doc-monitor-live.css";
 
 export const metadata: Metadata = {
   title: "DOCTYPE OS — Gestão Interna",

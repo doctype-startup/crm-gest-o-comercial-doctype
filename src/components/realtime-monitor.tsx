@@ -4,15 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Activity, CalendarClock, ChevronLeft, ChevronRight, CircleDollarSign, Gauge, RefreshCw, ShieldCheck } from "lucide-react";
 import { buildMonitorSnapshot } from "@/lib/monitor-engine";
-import type { AppRecord } from "@/lib/types";
+import type { Alert, AppRecord, SessionUser } from "@/lib/types";
 
-type StatePayload = { records: AppRecord[]; generatedAt: string };
+type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
 type SyncState = "live" | "syncing" | "stale" | "retrying";
 type GaugeMetric = { label: string; value: number; detail: string; tone: "good" | "attention" | "critical"; icon: typeof Gauge };
 
-const POLL_MS = 10000;
+const POLL_MS = 3000;
 const ROTATION_MS = 7000;
-const STALE_MS = 30000;
+const STALE_MS = 15000;
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 const number = (value: unknown) => Number(value || 0);
 const text = (value: unknown) => String(value ?? "");
@@ -22,6 +22,18 @@ async function loadState(signal?: AbortSignal): Promise<StatePayload> {
   const response = await fetch("/api/state", { cache: "no-store", signal });
   if (!response.ok) throw new Error("Não foi possível atualizar o monitor.");
   return response.json();
+}
+
+function recordsSignature(records: AppRecord[]) {
+  return records.map((record) => `${record.id}:${record.updatedAt}`).sort().join("|");
+}
+
+function publishMonitorState(payload: StatePayload) {
+  window.dispatchEvent(new CustomEvent<StatePayload>("doctype:monitor-state", { detail: payload }));
+}
+
+function publishSyncState(syncState: SyncState) {
+  window.dispatchEvent(new CustomEvent<SyncState>("doctype:monitor-sync", { detail: syncState }));
 }
 
 function scoreTone(value: number): GaugeMetric["tone"] {
@@ -72,6 +84,16 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   const queued = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const signatureRef = useRef(recordsSignature(initialRecords));
+  const lastUpdateRef = useRef(lastUpdate);
+  const syncStateRef = useRef<SyncState>("live");
+  const errorRef = useRef("");
+
+  function setAndPublishSync(next: SyncState) {
+    syncStateRef.current = next;
+    setSyncState(next);
+    publishSyncState(next);
+  }
 
   async function performRefresh() {
     if (inflight.current) {
@@ -80,18 +102,28 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
     }
     const controller = new AbortController();
     abortRef.current = controller;
-    setSyncState(error ? "retrying" : "syncing");
+    setAndPublishSync(errorRef.current ? "retrying" : "syncing");
     const job = (async () => {
       try {
         const payload = await loadState(controller.signal);
+        const nextSignature = recordsSignature(payload.records);
+        const changed = nextSignature !== signatureRef.current;
+        signatureRef.current = nextSignature;
+        const nextUpdate = new Date(payload.generatedAt || Date.now());
+        lastUpdateRef.current = nextUpdate;
         setRecords(payload.records);
-        setLastUpdate(new Date(payload.generatedAt || Date.now()));
+        setLastUpdate(nextUpdate);
+        errorRef.current = "";
         setError("");
-        setSyncState("live");
+        setAndPublishSync("live");
+        publishMonitorState(payload);
+        if (changed) window.dispatchEvent(new CustomEvent("doctype:records-changed", { detail: { source: "monitor" } }));
       } catch (cause) {
         if (controller.signal.aborted) return;
-        setError(cause instanceof Error ? cause.message : "Falha de sincronização.");
-        setSyncState("retrying");
+        const message = cause instanceof Error ? cause.message : "Falha de sincronização.";
+        errorRef.current = message;
+        setError(message);
+        setAndPublishSync("retrying");
       } finally {
         inflight.current = null;
         abortRef.current = null;
@@ -127,10 +159,13 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   useEffect(() => {
     const poll = window.setInterval(() => { if (!document.hidden) void performRefresh(); }, POLL_MS);
     const staleCheck = window.setInterval(() => {
-      if (!document.hidden && Date.now() - lastUpdate.getTime() > STALE_MS && syncState !== "syncing") setSyncState("stale");
-    }, 5000);
+      if (!document.hidden && Date.now() - lastUpdateRef.current.getTime() > STALE_MS && syncStateRef.current !== "syncing") setAndPublishSync("stale");
+    }, 3000);
     const onVisibility = () => { if (!document.hidden) void performRefresh(); };
-    const onRecordsChanged = () => scheduleRefresh();
+    const onRecordsChanged = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.source === "monitor") return;
+      scheduleRefresh();
+    };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("doctype:records-changed", onRecordsChanged);
     return () => {
@@ -141,7 +176,9 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
       if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
       abortRef.current?.abort();
     };
-  }, [lastUpdate, syncState]);
+    // This subscription intentionally mounts once; mutable monitor state is read through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const snapshot = useMemo(() => buildMonitorSnapshot(records), [records]);
   const metrics = useMemo(() => computeMetrics(records), [records]);
@@ -161,7 +198,7 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
         <div>
           <span className="eyebrow"><ShieldCheck size={14} /> DOC MONITOR AO VIVO</span>
           <h2>Saúde da operação</h2>
-          <p>Eventos do CRM atualizam o Guardião imediatamente; uma leitura redundante confirma o estado a cada 10 segundos.</p>
+          <p>Eventos do CRM atualizam o Guardião imediatamente; uma leitura redundante reconcilia o estado a cada 3 segundos.</p>
         </div>
         <div className={`live-sync ${syncState}`}>
           <span><i /> {syncLabel}</span>
