@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Download, FileSignature, FileText, Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { AppRecord, CommercialModuleKey, SessionUser } from "@/lib/types";
@@ -12,6 +12,7 @@ type Modal = { module: CommercialView; record?: AppRecord } | null;
 const money = (value: unknown) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const text = (value: unknown) => String(value ?? "");
 const arr = (value: unknown) => Array.isArray(value) ? value.map(String) : [];
+const labels: Record<CommercialView, string> = { products: "Produtos", quotes: "Orçamentos", contracts: "Contratos" };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -28,6 +29,7 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
   const [navTarget, setNavTarget] = useState<Element | null>(null);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const nativeTitle = useRef("");
 
   const records = state.records;
   const clients = records.filter((r) => r.module === "clients");
@@ -50,12 +52,43 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
     document.querySelector<HTMLButtonElement>(".mobile-close")?.click();
   }
 
+  function syncShell(next: CommercialView | null) {
+    const heading = document.querySelector<HTMLElement>(".topbar h1");
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>(".sidebar nav button"));
+
+    if (next) {
+      document.documentElement.classList.add("commercial-active");
+      document.documentElement.dataset.commercialView = next;
+      if (heading && heading.textContent !== labels[next]) heading.textContent = labels[next];
+      buttons.forEach((button) => {
+        const commercial = button.dataset.commercialNav;
+        const shouldBeActive = commercial === next;
+        if (button.classList.contains("active") !== shouldBeActive) button.classList.toggle("active", shouldBeActive);
+      });
+      return;
+    }
+
+    document.documentElement.classList.remove("commercial-active");
+    delete document.documentElement.dataset.commercialView;
+    if (nativeTitle.current && heading) heading.textContent = nativeTitle.current;
+    buttons.filter((button) => button.dataset.commercialNav).forEach((button) => button.classList.remove("active"));
+  }
+
   async function openCommercial(next: CommercialView) {
     setError("");
     closeMobileSidebar();
-    await refresh();
+    const heading = document.querySelector<HTMLElement>(".topbar h1");
+    if (!view && heading) nativeTitle.current = heading.textContent || "";
     setView(next);
     setSearch("");
+    syncShell(next);
+    await refresh();
+    syncShell(next);
+  }
+
+  function closeCommercial() {
+    setView(null);
+    syncShell(null);
   }
 
   async function openCreate(module: CommercialView) {
@@ -73,10 +106,39 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
   }, []);
 
   useEffect(() => {
+    const onNavClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>(".sidebar nav button") : null;
+      if (!target || target.dataset.commercialNav) return;
+      nativeTitle.current = "";
+      setView(null);
+      document.documentElement.classList.remove("commercial-active");
+      delete document.documentElement.dataset.commercialView;
+    };
+    document.addEventListener("click", onNavClick, true);
+    return () => document.removeEventListener("click", onNavClick, true);
+  }, []);
+
+  useEffect(() => {
+    if (!view) return;
+    const apply = () => syncShell(view);
+    apply();
+    const shell = document.querySelector(".os-shell");
+    if (!shell) return;
+    const observer = new MutationObserver(apply);
+    observer.observe(shell, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, [view]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2800);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => () => {
+    document.documentElement.classList.remove("commercial-active");
+    delete document.documentElement.dataset.commercialView;
+  }, []);
 
   async function remove(record: AppRecord) {
     if (!window.confirm("Excluir este registro?")) return;
@@ -90,9 +152,9 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
   }
 
   const nav = navTarget ? createPortal(<>
-    <button className={view === "products" ? "active" : ""} onClick={() => { void openCommercial("products"); }}><Package size={18} /><span>Produtos</span></button>
-    <button className={view === "quotes" ? "active" : ""} onClick={() => { void openCommercial("quotes"); }}><FileText size={18} /><span>Orçamentos</span></button>
-    <button className={view === "contracts" ? "active" : ""} onClick={() => { void openCommercial("contracts"); }}><FileSignature size={18} /><span>Contratos</span></button>
+    <button data-commercial-nav="products" className={view === "products" ? "active" : ""} onClick={() => { void openCommercial("products"); }}><Package size={18} /><span>Produtos</span></button>
+    <button data-commercial-nav="quotes" className={view === "quotes" ? "active" : ""} onClick={() => { void openCommercial("quotes"); }}><FileText size={18} /><span>Orçamentos</span></button>
+    <button data-commercial-nav="contracts" className={view === "contracts" ? "active" : ""} onClick={() => { void openCommercial("contracts"); }}><FileSignature size={18} /><span>Contratos</span></button>
   </>, navTarget) : null;
 
   const source = view === "products" ? products : view === "quotes" ? quotes : contracts;
@@ -101,24 +163,24 @@ export function CommercialSuite({ initialState }: { initialState: StatePayload }
 
   return <>
     {nav}
-    {view && <div className="commercial-page commercial-suite">
+    {view && <div className="commercial-page commercial-suite" data-view={view}>
       <header className="commercial-head">
-        <div><span>GESTÃO COMERCIAL</span><h1>{view === "products" ? "Produtos" : view === "quotes" ? "Orçamentos" : "Contratos"}</h1><p>{view === "products" ? "Catálogo, preço, custo, recorrência e margem." : view === "quotes" ? "Propostas vinculadas a clientes e produtos." : "Contratos assinados e documentos dos clientes."}</p></div>
-        <div className="commercial-actions"><button className="ghost" onClick={() => setView(null)}><X size={17} /> Fechar</button><button className="primary" onClick={() => { void openCreate(view); }}><Plus size={17} /> {view === "products" ? "Produto" : view === "quotes" ? "Orçamento" : "Contrato"}</button></div>
+        <div><span>GESTÃO COMERCIAL</span><h1>{labels[view]}</h1><p>{view === "products" ? "Catálogo, preço, custo, recorrência e margem." : view === "quotes" ? "Propostas vinculadas a clientes e produtos." : "Contratos assinados e documentos dos clientes."}</p></div>
+        <div className="commercial-actions"><button className="ghost" onClick={closeCommercial}><X size={17} /> Fechar</button><button className="primary" onClick={() => { void openCreate(view); }}><Plus size={17} /> {view === "products" ? "Produto" : view === "quotes" ? "Orçamento" : "Contrato"}</button></div>
       </header>
       <div className="commercial-kpis">
         {view === "products" && <><MiniKpi label="Produtos ativos" value={String(products.filter((r) => r.data.status === "Ativo").length)} /><MiniKpi label="Categorias" value={String(new Set(products.map((r) => text(r.data.category)).filter(Boolean)).size)} /><MiniKpi label="Ticket médio" value={money(products.length ? products.reduce((s, r) => s + Number(r.data.price || 0), 0) / products.length : 0)} /></>}
         {view === "quotes" && <><MiniKpi label="Orçamentos" value={String(quotes.length)} /><MiniKpi label="Aprovados" value={String(quotes.filter((r) => r.data.status === "Aprovado").length)} /><MiniKpi label="Valor aprovado" value={money(quotes.filter((r) => r.data.status === "Aprovado").reduce((s, r) => s + Number(r.data.total || 0), 0))} /></>}
         {view === "contracts" && <><MiniKpi label="Contratos" value={String(contracts.length)} /><MiniKpi label="Assinados" value={String(contracts.filter((r) => r.data.status === "Assinado").length)} /><MiniKpi label="Valor contratado" value={money(contracts.filter((r) => r.data.status === "Assinado").reduce((s, r) => s + Number(r.data.value || 0), 0))} /></>}
       </div>
-      <label className="commercial-search"><Search size={18} /><input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} /></label>
+      <label className="commercial-search"><Search size={18} /><input placeholder="Buscar em todos os campos..." value={search} onChange={(e) => setSearch(e.target.value)} /></label>
       {error && <div className="commercial-error">{error}</div>}
       <div className="commercial-table"><table><thead><tr>{view === "products" ? <><th>Produto</th><th>SKU</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Margem</th><th>Cobrança</th><th>Status</th></> : view === "quotes" ? <><th>Nº</th><th>Cliente</th><th>Produtos</th><th>Total</th><th>Validade</th><th>Status</th></> : <><th>Nº</th><th>Cliente</th><th>Produtos</th><th>Valor</th><th>Vigência</th><th>Documento</th><th>Status</th></>}<th>Ações</th></tr></thead><tbody>
         {filtered.map((record) => <tr key={record.id}>{view === "products" ? <><td><strong>{text(record.data.name)}</strong><small>{text(record.data.description)}</small></td><td>{text(record.data.sku) || "—"}</td><td>{text(record.data.category) || "—"}</td><td>{money(record.data.price)}</td><td>{money(record.data.cost)}</td><td>{Number(record.data.price || 0) ? `${Math.round(((Number(record.data.price || 0) - Number(record.data.cost || 0)) / Number(record.data.price || 1)) * 100)}%` : "—"}</td><td>{text(record.data.billingType)}</td><td><Status value={text(record.data.status)} /></td></> : view === "quotes" ? <><td>{text(record.data.number)}</td><td>{clientName(record.data.clientId)}</td><td>{productNames(record.data.productIds)}</td><td>{money(record.data.total)}</td><td>{text(record.data.validUntil) || "—"}</td><td><Status value={text(record.data.status)} /></td></> : <><td>{text(record.data.number)}</td><td>{clientName(record.data.clientId)}</td><td>{productNames(record.data.productIds)}</td><td>{money(record.data.value)}</td><td>{text(record.data.startDate) || "—"}{record.data.endDate ? ` → ${text(record.data.endDate)}` : ""}</td><td>{record.data.fileDataUrl ? <a className="contract-download" href={text(record.data.fileDataUrl)} download={text(record.data.fileName) || "contrato.pdf"}><Download size={14} /> {text(record.data.fileName) || "Baixar"}</a> : "—"}</td><td><Status value={text(record.data.status)} /></td></>}<td><div className="commercial-row-actions"><button aria-label="Editar" onClick={() => setModal({ module: view, record })}><Pencil size={15} /></button><button aria-label="Excluir" className="danger" onClick={() => remove(record)}><Trash2 size={15} /></button></div></td></tr>)}
         {!filtered.length && <tr><td colSpan={9} className="commercial-empty">Nenhum registro encontrado.</td></tr>}
       </tbody></table></div>
     </div>}
-    {modal && <CommercialModal modal={modal} clients={clients} products={products} quotes={quotes} close={() => setModal(null)} saved={async () => { setModal(null); setToast("Registro salvo."); await refresh(); }} />}
+    {modal && <CommercialModal modal={modal} clients={clients} products={products} quotes={quotes} close={() => setModal(null)} saved={async () => { setModal(null); setToast("Registro salvo."); await refresh(); if (view) syncShell(view); }} />}
     {toast && <div className="commercial-toast">{toast}</div>}
   </>;
 }
@@ -173,7 +235,7 @@ function CommercialModal({ modal, clients, products, quotes, close, saved }: { m
   }
 
   const title = `${record ? "Editar" : "Novo"} ${modal.module === "products" ? "produto" : modal.module === "quotes" ? "orçamento" : "contrato"}`;
-  return <div className="commercial-modal-backdrop commercial-suite"><div className="commercial-modal"><div className="commercial-modal-head"><div><span>DOC.OS</span><h2>{title}</h2></div><button aria-label="Fechar" onClick={close}><X /></button></div><form onSubmit={submit}><div className="commercial-form">
+  return <div className="commercial-modal-backdrop commercial-suite"><div className="commercial-modal" role="dialog" aria-modal="true" aria-label={title}><div className="commercial-modal-head"><div><span>DOC.OS</span><h2>{title}</h2></div><button aria-label="Fechar" onClick={close}><X /></button></div><form onSubmit={submit}><div className="commercial-form">
     {modal.module === "products" && <><Field label="Nome do produto *" value={data.name} set={(v) => setData({ ...data, name: v })} required /><Field label="SKU / Código" value={data.sku} set={(v) => setData({ ...data, sku: v })} /><Field label="Categoria" value={data.category} set={(v) => setData({ ...data, category: v })} /><Field label="Preço de venda" type="number" value={data.price} set={(v) => setData({ ...data, price: Number(v) })} /><Field label="Custo" type="number" value={data.cost} set={(v) => setData({ ...data, cost: Number(v) })} /><SelectField label="Unidade" value={data.unit} options={["unidade", "serviço", "hora", "mês", "projeto"]} set={(v) => setData({ ...data, unit: v })} /><SelectField label="Cobrança" value={data.billingType} options={["Único", "Mensal", "Trimestral", "Semestral", "Anual"]} set={(v) => setData({ ...data, billingType: v })} /><SelectField label="Status" value={data.status} options={["Ativo", "Inativo"]} set={(v) => setData({ ...data, status: v })} /><Area label="Descrição" value={data.description} set={(v) => setData({ ...data, description: v })} /><Area label="Observações internas" value={data.notes} set={(v) => setData({ ...data, notes: v })} /></>}
     {modal.module === "quotes" && <><Field label="Número *" value={data.number} set={(v) => setData({ ...data, number: v })} required /><ClientSelect clients={clients} value={data.clientId} set={(v) => setData({ ...data, clientId: v })} /><Field label="Título do orçamento *" value={data.title} set={(v) => setData({ ...data, title: v })} required /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Subtotal" type="number" value={productsSubtotal} set={() => undefined} disabled /><Field label="Desconto (R$)" type="number" value={data.discount} set={(v) => setData({ ...data, discount: Number(v) })} /><Field label="Total" type="number" value={quoteTotal} set={() => undefined} disabled /><Field label="Válido até" type="date" value={data.validUntil} set={(v) => setData({ ...data, validUntil: v })} /><SelectField label="Status" value={data.status} options={["Rascunho", "Enviado", "Aprovado", "Recusado", "Expirado"]} set={(v) => setData({ ...data, status: v })} /><Area label="Condições / observações" value={data.notes} set={(v) => setData({ ...data, notes: v })} /></>}
     {modal.module === "contracts" && <><Field label="Número *" value={data.number} set={(v) => setData({ ...data, number: v })} required /><ClientSelect clients={clients} value={data.clientId} set={(v) => setData({ ...data, clientId: v })} /><label><span>Orçamento relacionado</span><select value={text(data.quoteId)} onChange={(e) => setData({ ...data, quoteId: e.target.value })}><option value="">Sem vínculo</option>{quotes.map((q) => <option key={q.id} value={q.id}>{text(q.data.number)} — {text(q.data.title)}</option>)}</select></label><Field label="Título do contrato *" value={data.title} set={(v) => setData({ ...data, title: v })} required /><ProductPicker products={products} selected={arr(data.productIds)} toggle={toggleProduct} /><Field label="Valor do contrato" type="number" value={data.value} set={(v) => setData({ ...data, value: Number(v) })} /><Field label="Início" type="date" value={data.startDate} set={(v) => setData({ ...data, startDate: v })} /><Field label="Fim / renovação" type="date" value={data.endDate} set={(v) => setData({ ...data, endDate: v })} /><Field label="Data da assinatura" type="date" value={data.signedAt} set={(v) => setData({ ...data, signedAt: v })} /><SelectField label="Status" value={data.status} options={["Rascunho", "Enviado", "Assinado", "Vencido", "Cancelado"]} set={(v) => setData({ ...data, status: v })} /><label className="commercial-file"><span>Contrato assinado (PDF ou imagem, até 2 MB)</span><input type="file" accept="application/pdf,image/*" onChange={(e) => attach(e.target.files?.[0])} />{Boolean(data.fileName) && <small>Arquivo atual: {text(data.fileName)}</small>}</label><Area label="Observações" value={data.observations} set={(v) => setData({ ...data, observations: v })} /></>}

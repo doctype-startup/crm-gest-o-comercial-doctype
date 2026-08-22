@@ -1,10 +1,11 @@
-/* Direct Guardião placement in DOC Monitor card */
+/* Guardião placement in DOC Monitor cards using the validated production asset. */
 .doc-card{position:relative!important;overflow:hidden!important}
 .doc-card>img:first-child{display:none!important}
 .doc-card .doc-copy{position:relative;z-index:3!important}
 .doc-card:not(.large){padding-bottom:116px!important}
-.doc-card:not(.large)::after{content:""!important;position:absolute!important;right:6px!important;bottom:4px!important;width:132px!important;height:104px!important;background:url('/assets/guardiao-inline.png') center bottom/contain no-repeat!important;border:0!important;border-radius:0!important;box-shadow:none!important;z-index:2!important;pointer-events:none!important}
+.doc-card:not(.large)::after{content:""!important;position:absolute!important;right:8px!important;bottom:4px!important;width:138px!important;height:108px!important;background:url('/assets/guardiao-monitor.webp') center bottom/contain no-repeat!important;border:0!important;border-radius:0!important;box-shadow:none!important;filter:drop-shadow(0 12px 18px rgba(0,0,0,.34));z-index:2!important;pointer-events:none!important}
 .doc-card:not(.large)::before{content:none!important;display:none!important;border:0!important;box-shadow:none!important}
-.doc-card.large{min-height:420px!important;padding-bottom:150px!important}
-.doc-card.large::after{content:""!important;position:absolute!important;right:18px!important;bottom:10px!important;width:220px!important;height:170px!important;background:url('/assets/guardiao-inline.png') center bottom/contain no-repeat!important;z-index:2!important;pointer-events:none!important}
-@media(max-width:760px){.doc-card:not(.large){padding-bottom:102px!important}.doc-card:not(.large)::after{width:112px!important;height:90px!important}.doc-card.large::after{width:170px!important;height:136px!important}}
+.doc-card.large{min-height:420px!important;padding-bottom:158px!important}
+.doc-card.large::after{content:""!important;position:absolute!important;right:20px!important;bottom:10px!important;width:228px!important;height:178px!important;background:url('/assets/guardiao-monitor.webp') center bottom/contain no-repeat!important;border:0!important;box-shadow:none!important;filter:drop-shadow(0 16px 24px rgba(0,0,0,.38));z-index:2!important;pointer-events:none!important}
+.doc-card.large::before{content:none!important;display:none!important}
+@media(max-width:760px){.doc-card:not(.large){padding-bottom:104px!important}.doc-card:not(.large)::after{width:118px!important;height:94px!important;right:4px!important}.doc-card.large{padding-bottom:136px!important}.doc-card.large::after{width:176px!important;height:140px!important;right:8px!important}}
