@@ -10,7 +10,9 @@ async function login(page: Page) {
 
 async function openNav(page: Page, testInfo: TestInfo, label: string) {
   if (testInfo.project.name === "mobile") await page.getByRole("button", { name: "Abrir menu" }).click();
-  const target = page.getByRole("button", { name: label, exact: true });
+  const target = label === "DOC Monitor"
+    ? page.getByRole("button", { name: /^DOC Monitor/ })
+    : page.getByRole("button", { name: label, exact: true });
   await target.scrollIntoViewIfNeeded();
   await target.click();
 }
