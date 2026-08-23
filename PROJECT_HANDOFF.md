@@ -1,6 +1,6 @@
 # DOC.OS — Handoff técnico e continuidade
 
-Atualizado em: 22/08/2026
+Atualizado em: 23/08/2026
 
 ## Repositório e produção
 - Repositório oficial: `doctype-startup/crm-gest-o-comercial-doctype`
@@ -8,6 +8,8 @@ Atualizado em: 22/08/2026
 - Projeto Vercel: `doctype-os-gestao`
 - O código versionado no GitHub é a fonte de verdade do sistema.
 - Antes de trabalhar, conferir o HEAD atual de `main`, o último CI verde e o deployment Vercel correspondente.
+- Estado validado ao encerrar a sessão de 23/08/2026: PR #13 mergeada e produção Vercel `success`.
+- Commit funcional de produção validado: `f1d4a781c9bee9381223263104621606f8585292`.
 
 ## Objetivo do sistema
 DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Centraliza gestão comercial, clientes, financeiro, operação, DOC CRM, equipe, renovações, configurações e monitoramento inteligente pelo DOC Monitor.
@@ -66,6 +68,7 @@ O DOC Monitor funciona como camada de observabilidade do DOC.OS e nunca como est
 - `src/lib/monitor.ts`: alertas operacionais tradicionais.
 - `src/lib/monitor-engine.ts`: motor puro de consolidação dos dados do sistema em seções rotativas.
 - `src/components/realtime-monitor.tsx`: sincronização, resiliência, termômetros, rotação e distribuição do estado ao vivo.
+- `src/components/monitor-state-bridge.tsx`: ponte que injeta no `DoctypeOS` o MESMO `StatePayload` publicado pelo DOC Monitor, inclusive quando alertas mudam sem alteração de `id/updatedAt` dos registros.
 - `src/app/realtime-monitor.css`: layout e estados visuais do monitor ao vivo.
 - `src/components/doc-monitor-overlay.tsx`: balão flutuante/drawer do Guardião, alimentado pelo mesmo estado ao vivo.
 - `src/app/doc-monitor-live.css`: responsividade e estados visuais do balão rotativo.
@@ -73,25 +76,44 @@ O DOC Monitor funciona como camada de observabilidade do DOC.OS e nunca como est
 ### Princípios obrigatórios
 1. O monitor somente lê os registros autorizados retornados por `/api/state`.
 2. O monitor não pode alterar registros, banco ou estado operacional dos outros módulos.
-3. Eventos `doctype:records-changed` disparam uma atualização imediata do monitor quando o módulo emissor os publica.
-4. Existe reconciliação redundante via polling a cada 3 segundos para cobrir módulos sem evento, alterações multiusuário e recuperação de eventos perdidos.
+3. Eventos `doctype:records-changed` disparam atualização imediata quando o módulo emissor os publica.
+4. Existe reconciliação redundante via polling a cada 3 segundos para cobrir módulos sem evento, alterações multiusuário, passagem do tempo e recuperação de eventos perdidos.
 5. Requisições simultâneas são serializadas; se chegar novo evento durante uma leitura, uma nova leitura é enfileirada.
 6. Eventos são debounced para evitar tempestade de chamadas.
 7. Uma falha de rede não zera o painel: mantém a última leitura válida e sinaliza `RECONECTANDO`.
 8. Após 15 segundos sem leitura válida, o painel pode sinalizar `DADOS DESATUALIZADOS`.
 9. Ao voltar para uma aba visível, o monitor sincroniza novamente.
-10. Toda leitura válida publica `doctype:monitor-state`; painel, contador de atenção e balão consomem o mesmo pacote.
-11. O estado de conexão é publicado em `doctype:monitor-sync` (`live`, `syncing`, `retrying`, `stale`).
-12. Quando o polling identifica mudança real nos registros, publica `doctype:records-changed` com `detail.source = "monitor"` para reconciliar os componentes nativos. O próprio monitor ignora eventos com essa origem para impedir loop infinito.
-13. O contador do balão NÃO soma tarefas/renovações por fora. Ele usa `alerts.length`, a mesma fonte exibida no card nativo de pontos de atenção, evitando dupla contagem.
-14. O ciclo de sincronização deve permanecer montado uma única vez. `lastUpdate`, `syncState` e erro de sincronização são acompanhados por refs; mudanças visuais nesses estados não podem desmontar o efeito nem abortar a própria requisição em andamento.
+10. Toda leitura válida publica `doctype:monitor-state` com o pacote completo `{ records, alerts, settings, user, generatedAt }`.
+11. `MonitorStateBridge`, `DocMonitorOverlay` e as superfícies nativas devem consumir esse mesmo pacote ao vivo. Nunca criar um segundo estado de alertas independente.
+12. O estado de conexão é publicado em `doctype:monitor-sync` (`live`, `syncing`, `retrying`, `stale`).
+13. Quando o polling identifica mudança real nos registros, publica `doctype:records-changed` com `detail.source = "monitor"` para reconciliar componentes que ainda dependem desse evento; o próprio monitor ignora essa origem para impedir loop infinito.
+14. O contador do balão NÃO soma tarefas/renovações por fora. Usa exclusivamente `alerts.length` retornado pelo `/api/state`.
+15. O ciclo de sincronização deve permanecer montado uma única vez. `lastUpdate`, `syncState` e erro usam refs; mudanças visuais não podem desmontar o efeito nem abortar a própria requisição.
+16. Mudanças de alerta decorrentes apenas da passagem do tempo DEVEM aparecer simultaneamente no menu, card nativo, lista, selo e balão mesmo sem `updatedAt` novo no registro.
+
+### Fluxo único de estado ao vivo
+Fluxo obrigatório:
+
+`/api/state` → `RealtimeMonitor` → `doctype:monitor-state` → `MonitorStateBridge` + `DocMonitorOverlay` → superfícies do DOC.OS.
+
+Esse fluxo garante que:
+- número ao lado de `DOC Monitor`;
+- card `X pontos pedem atenção`;
+- lista de alertas;
+- selo do Guardião;
+- texto `X pontos pedindo atenção` no drawer;
+- mensagens rotativas do balão;
+
+usem a MESMA leitura válida e mudem juntos.
+
+Não voltar ao modelo anterior em que o balão recebia `doctype:monitor-state`, mas o shell permanecia apenas com `state.alerts` obtido por outra atualização.
 
 ### Pontos de atenção em tempo real
 - O número exibido no selo do Guardião é dinâmico; não existe valor fixo como `3`.
 - Se não houver alertas ativos, o selo não é exibido.
-- Ao criar, editar ou resolver uma situação que gere/remova alerta, a contagem deve refletir a nova leitura automaticamente.
+- Ao criar, editar, resolver ou simplesmente atingir um prazo que gere/remova alerta, a contagem deve refletir a nova leitura automaticamente.
 - O texto `X pontos pedindo atenção` dentro do drawer deve sempre coincidir com o selo.
-- O card nativo `X pontos pedem atenção` é reconciliado pelo mesmo ciclo de estado via `doctype:records-changed`.
+- O card nativo `X pontos pedem atenção` e o contador do menu devem usar exatamente o mesmo `alerts.length` do pacote ao vivo.
 - O item lateral `DOC Monitor` pode incluir a contagem no nome acessível; testes não devem exigir o nome exato sem considerar esse contador.
 
 ### Rotatividade do layout
@@ -137,6 +159,7 @@ Além da suíte existente:
 - `tests/monitor-engine.test.ts`: garante consolidação dos módulos, imutabilidade dos registros e comportamento sem dados.
 - `tests/e2e/doc-monitor-live.spec.ts`: valida renderização, rotação e atualização imediata por `doctype:records-changed` em desktop/mobile.
 - `tests/e2e/doc-monitor-live-attention.spec.ts`: valida que contador, drawer e card nativo compartilham a mesma contagem ao vivo e que uma nova exceção altera o número automaticamente.
+- PR #13 adicionou validação específica de mudança de alerta sem alteração de registro, cobrindo o bug em que a passagem do tempo podia alterar `alerts` sem mudar `id/updatedAt`.
 
 Sempre preservar também os testes anteriores de alertas, Guardião, contraste, DOC CRM, configurações e jornada completa.
 
@@ -155,6 +178,8 @@ Sempre preservar também os testes anteriores de alertas, Guardião, contraste, 
 - Contagem fixa/dessincronizada no balão do DOC Monitor.
 - Dupla contagem potencial de alertas + tarefas + renovações no selo do Guardião.
 - Ciclo de polling que podia abortar a própria requisição ao trocar de `live` para `syncing`.
+- Divergência entre o estado ao vivo do balão e o `state.alerts` das superfícies nativas.
+- PR #13: unificação efetiva do estado ao vivo com `MonitorStateBridge`, incluindo alertas que mudam somente pela passagem do tempo.
 
 ## Testes exigidos antes de qualquer merge em main
 Nunca considerar uma alteração pronta apenas porque compilou. Antes de publicar, exigir:
@@ -175,9 +200,17 @@ Nunca considerar uma alteração pronta apenas porque compilou. Antes de publica
 - Menu mobile não bloqueia a página.
 - DOC Monitor carrega o Guardião válido.
 - DOC Monitor recebe evento de mudança, refaz `/api/state` e volta ao estado `AO VIVO`.
-- Contador do Guardião, drawer e card de pontos de atenção permanecem sincronizados.
-- Mudança externa detectada pelo polling reconcilia o restante da UI sem gerar loop de atualização.
+- Contador do Guardião, drawer, menu e card de pontos de atenção permanecem sincronizados.
+- Alerta derivado apenas da passagem do tempo também atualiza menu/card/selo/balão sem exigir edição do registro.
+- Mudança externa detectada pelo polling reconcilia o restante da UI sem gerar loop.
 - Falha de sincronização do monitor não pode derrubar ou limpar os outros módulos.
+
+## Estado confirmado ao encerrar em 23/08/2026
+- PR #13: `Fix single live attention state across DOC.OS` — mergeada.
+- Merge commit funcional: `f1d4a781c9bee9381223263104621606f8585292`.
+- CI antes do merge: `quality` success, E2E Chromium success, E2E mobile success.
+- Vercel após o merge: `success`.
+- Último problema resolvido: o balão estava atualizado pelo `doctype:monitor-state`, mas as superfícies nativas podiam permanecer com alertas antigos. A ponte de estado único elimina essa divergência.
 
 ## Forma de trabalho obrigatória
 - Mudanças estruturais em branch própria.
@@ -197,6 +230,7 @@ Nunca considerar uma alteração pronta apenas porque compilou. Antes de publica
 - `src/lib/monitor.ts` — alertas do Guardião.
 - `src/lib/monitor-engine.ts` — consolidação de observabilidade.
 - `src/components/realtime-monitor.tsx` — monitor ao vivo resiliente e barramento de estado.
+- `src/components/monitor-state-bridge.tsx` — reconcilia o pacote ao vivo com o estado do DOC.OS.
 - `src/app/realtime-monitor.css` — UI do monitor ao vivo.
 - `src/components/doc-monitor-overlay.tsx` — overlay/balão do Guardião sincronizado.
 - `src/app/doc-monitor-live.css` — camada responsiva do balão ao vivo.
@@ -204,7 +238,7 @@ Nunca considerar uma alteração pronta apenas porque compilou. Antes de publica
 - `tests/e2e/commercial.spec.ts` — jornada comercial.
 - `tests/e2e/journeys.spec.ts` — jornadas gerais.
 - `tests/e2e/doc-monitor-live.spec.ts` — sincronização/rotação do monitor.
-- `tests/e2e/doc-monitor-live-attention.spec.ts` — contagem dinâmica e balão.
+- `tests/e2e/doc-monitor-live-attention.spec.ts` — contagem dinâmica, balão e estado único.
 
 ## Regra de continuidade
 Se outra pessoa, IA ou desenvolvedor assumir o projeto, deve começar por este arquivo, pelo `CODEX_PROMPT.md` e pelo histórico do GitHub. Preservar identidade DOCTYPE, persistência multiusuário, permissões, DOC Monitor, testes e jornadas já validadas. Nunca substituir a arquitetura existente por uma implementação paralela sem justificar, migrar e testar integralmente.
