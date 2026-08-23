@@ -49,3 +49,45 @@ test("attention count, DOC card and responsive Guardião bubble share the live m
   await openNav(page, testInfo, "DOC Monitor");
   await expect(page.locator(".doc-card h2")).toContainText(`${after} ponto`);
 });
+
+test("time-derived alert changes reconcile menu, native card and Guardião without a record update", async ({ page }, testInfo) => {
+  await login(page);
+
+  const currentResponse = await page.request.get("/api/state");
+  expect(currentResponse.ok()).toBeTruthy();
+  const current = await currentResponse.json();
+  const syntheticAlert = {
+    id: `time-derived-${testInfo.project.name}`,
+    severity: "warning",
+    title: "Alerta derivado do tempo",
+    detail: "Mudança de atenção sem alterar id ou updatedAt do registro",
+    module: "tasks",
+  };
+  const next = {
+    ...current,
+    alerts: [...current.alerts, syntheticAlert],
+    generatedAt: new Date().toISOString(),
+  };
+
+  await page.route("**/api/state", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(next) });
+  });
+
+  await page.evaluate((payload) => {
+    window.dispatchEvent(new CustomEvent("doctype:monitor-state", { detail: payload }));
+  }, next);
+
+  const expected = String(next.alerts.length);
+  const monitorNav = page.locator(".sidebar nav button").filter({ hasText: "DOC Monitor" });
+  await expect(monitorNav.locator(".nav-count")).toHaveText(expected);
+  await expect.poll(() => badgeCount(page)).toBe(next.alerts.length);
+
+  await page.locator(".doc-fab").click();
+  const drawer = page.locator(".doc-drawer.open");
+  await expect(drawer.getByText(`${expected} pontos pedindo atenção`, { exact: true })).toBeVisible();
+  await drawer.getByRole("button", { name: "Fechar DOC Monitor" }).click();
+
+  await openNav(page, testInfo, "DOC Monitor");
+  await expect(page.locator(".doc-card h2")).toContainText(`${expected} pontos pedem atenção`);
+});
