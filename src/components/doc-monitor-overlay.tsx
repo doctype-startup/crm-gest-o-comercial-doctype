@@ -75,11 +75,14 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
   const speechText = speechSection && speechItem
     ? `${speechSection.title}: ${speechItem.label} ${speechItem.value}. ${speechItem.detail}`
     : "A operação está protegida e sem exceções urgentes neste momento.";
+  const drawerMascot = speechItem?.tone === "critical" || speechItem?.tone === "attention"
+    ? "/assets/guardiao-alerta.webp"
+    : "/assets/guardiao-suporte.webp";
 
   return <>
     <button className="doc-fab" aria-label={`Abrir DOC Monitor${attention ? `, ${attention} ponto${attention === 1 ? "" : "s"} de atenção` : ""}`} onClick={() => setOpen(true)}>
       <span className="doc-fab-ring" aria-hidden="true" />
-      <span className="doc-fab-img"><Image src="/assets/guardiao-monitor.webp" alt="DOC Monitor" width={94} height={72} priority /></span>
+      <span className="doc-fab-img doc-mascot-crop doc-mascot-crop-fab"><Image src="/assets/guardiao-monitor-olho.webp" alt="DOC Monitor" width={94} height={94} priority /></span>
       {attention > 0 && <b aria-label={`${attention} ponto${attention === 1 ? "" : "s"} de atenção`}>{Math.min(attention, 99)}</b>}
     </button>
 
@@ -91,7 +94,7 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
       </header>
 
       <section className="doc-hero-panel">
-        <Image className="doc-hero-guardiao" src="/assets/guardiao-monitor.webp" alt="Guardião DOCTYPE" width={156} height={120} priority />
+        <div className="doc-hero-guardiao-wrap doc-mascot-crop doc-mascot-crop-drawer"><Image className="doc-hero-guardiao" src={drawerMascot} alt="Guardião DOCTYPE" width={156} height={156} priority /></div>
         <div className={`doc-speech ${speechItem?.tone || "neutral"}`} aria-live="polite">
           <strong>Olá, {firstName}!</strong>
           <p>{speechText}</p>
@@ -107,7 +110,7 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
       </div>
 
       <section className="doc-tip">
-        <div className="doc-tip-icon"><Image src="/assets/guardiao-monitor.webp" alt="Dica do Guardião" width={56} height={44} /></div>
+        <div className="doc-tip-icon doc-mascot-crop doc-mascot-crop-tip"><Image src={attention ? "/assets/guardiao-alerta.webp" : "/assets/guardiao-suporte.webp"} alt="Dica do Guardião" width={62} height={62} /></div>
         <div><strong>Dica do Guardião</strong><p>{data.result < 0 ? "As despesas pagas estão acima das receitas recebidas. Revise o Financeiro." : data.lateTasks ? `Existem ${data.lateTasks} tarefas vencidas. Priorize o que bloqueia a operação.` : data.renewals ? `Há ${data.renewals} renovações próximas. Antecipe contatos e decisões.` : attention ? `Há ${attention} ponto${attention === 1 ? "" : "s"} de atenção ativo${attention === 1 ? "" : "s"}. Abra o DOC Monitor para priorizar.` : "A operação não tem exceções urgentes agora. Continue acompanhando os indicadores."}</p></div>
       </section>
 
