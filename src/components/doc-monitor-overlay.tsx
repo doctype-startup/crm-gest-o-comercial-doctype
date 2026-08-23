@@ -4,6 +4,7 @@ import Image from "next/image";
 import { AlertTriangle, Bell, CheckCircle2, ChevronRight, CircleDollarSign, Clock3, MessageCircle, RotateCcw, ShieldCheck, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { buildMonitorSnapshot } from "@/lib/monitor-engine";
+import { GUARDIAO_FAB_IMAGE } from "@/lib/guardiao-fab-image";
 import type { Alert, AppRecord, SessionUser } from "@/lib/types";
 
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
@@ -82,7 +83,7 @@ export function DocMonitorOverlay({ state }: { state: StatePayload }) {
   return <>
     <button className="doc-fab" aria-label={`Abrir DOC Monitor${attention ? `, ${attention} ponto${attention === 1 ? "" : "s"} de atenção` : ""}`} onClick={() => setOpen(true)}>
       <span className="doc-fab-ring" aria-hidden="true" />
-      <span className="doc-fab-img doc-fab-img-official"><Image src="/assets/guardiao-suporte.webp" alt="Guardião DOC Monitor" width={192} height={192} priority unoptimized /></span>
+      <span className="doc-mascot-button-image"><Image src={GUARDIAO_FAB_IMAGE} alt="Guardião DOC Monitor" width={192} height={192} priority unoptimized /></span>
       {attention > 0 && <b aria-label={`${attention} ponto${attention === 1 ? "" : "s"} de atenção`}>{Math.min(attention, 99)}</b>}
     </button>
 
