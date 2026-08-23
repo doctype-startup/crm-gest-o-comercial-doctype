@@ -8,6 +8,7 @@ import {
   ChevronRight, CircleDollarSign, DatabaseBackup, Download, FileKey2, KeyRound, LogOut,
   Menu, Pencil, Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Users, X,
 } from "lucide-react";
+import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
 
 type View = "dashboard" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
@@ -169,7 +170,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
     <div className="os-shell">
       <aside className={menuOpen ? "sidebar open" : "sidebar"}>
         <button className="mobile-close" aria-label="Fechar menu" onClick={() => setMenuOpen(false)}><X /></button>
-        <div className="brand"><Image src="/assets/doctype-logo.svg" alt="DOCTYPE" width={48} height={48} priority /><div><strong>DOCTYPE OS</strong><span>Gestão interna</span></div></div>
+        <div className="brand"><Image src={SIDEBAR_LOGO_IMAGE} alt="Símbolo DOCTYPE" width={58} height={58} priority unoptimized /><div><strong>DOCTYPE OS</strong><span>Gestão interna</span></div></div>
         <nav>{nav.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => openView(item.id)}><item.icon size={18} /><span>{item.label}</span>{item.id === "monitor" && state?.alerts.length ? <b className="nav-count">{state.alerts.length}</b> : null}</button>)}</nav>
         <div className="sidebar-user"><span>{user.name}</span><small>{user.role === "CEO_ADMIN" ? "CEO / Admin" : user.role === "FINANCE" ? "Financeiro" : "Operação"}</small><button onClick={() => setAccountPassword(true)}><KeyRound size={15} /> Alterar minha senha</button><button onClick={logout}><LogOut size={15} /> Sair com segurança</button></div>
         <footer>Mais que marketing.<br /><strong>Estrutura para crescer.</strong></footer>
