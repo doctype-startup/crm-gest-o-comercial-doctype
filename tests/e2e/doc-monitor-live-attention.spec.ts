@@ -22,6 +22,25 @@ async function badgeCount(page: Page) {
   return await badge.count() ? Number(await badge.textContent()) : 0;
 }
 
+test("Guardião uses the contextual official mascot art in the floating button and drawer", async ({ page }) => {
+  await login(page);
+
+  for (const asset of ["guardiao-monitor-olho.webp", "guardiao-suporte.webp", "guardiao-alerta.webp"]) {
+    const response = await page.request.get(`/assets/${asset}`);
+    expect(response.ok(), `${asset} should be available`).toBeTruthy();
+  }
+
+  const fabImage = page.locator(".doc-fab img");
+  await expect(fabImage).toHaveAttribute("src", /guardiao-monitor-olho\.webp/);
+  await expect(page.locator(".doc-mascot-crop-fab")).toBeVisible();
+
+  await page.locator(".doc-fab").click();
+  const drawer = page.locator(".doc-drawer.open");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.locator(".doc-mascot-crop-drawer img")).toHaveAttribute("src", /guardiao-(alerta|suporte)\.webp/);
+  await expect(drawer.locator(".doc-mascot-crop-tip img")).toHaveAttribute("src", /guardiao-(alerta|suporte)\.webp/);
+});
+
 test("attention count, DOC card and responsive Guardião bubble share the live monitor state", async ({ page }, testInfo) => {
   await login(page);
   const before = await badgeCount(page);
