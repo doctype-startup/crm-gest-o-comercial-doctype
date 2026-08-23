@@ -22,17 +22,17 @@ async function badgeCount(page: Page) {
   return await badge.count() ? Number(await badge.textContent()) : 0;
 }
 
-test("Guardião uses the contextual official mascot art in the floating button and drawer", async ({ page }) => {
+test("Guardião renders the official mascot artwork in the floating button and drawer", async ({ page }) => {
   await login(page);
 
-  for (const asset of ["guardiao-monitor-olho.webp", "guardiao-suporte.webp", "guardiao-alerta.webp"]) {
-    const response = await page.request.get(`/assets/${asset}`);
-    expect(response.ok(), `${asset} should be available`).toBeTruthy();
-  }
+  const fabImage = page.locator(".doc-fab-img-official img");
+  await expect(fabImage).toBeVisible();
+  await expect(fabImage).toHaveAttribute("src", /^data:image\/webp;base64,/);
+  await expect.poll(async () => fabImage.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBeTruthy();
 
-  const fabImage = page.locator(".doc-fab img");
-  await expect(fabImage).toHaveAttribute("src", /guardiao-monitor-olho\.webp/);
-  await expect(page.locator(".doc-mascot-crop-fab")).toBeVisible();
+  const box = await fabImage.boundingBox();
+  expect(box?.width).toBeGreaterThan(50);
+  expect(box?.height).toBeGreaterThan(50);
 
   await page.locator(".doc-fab").click();
   const drawer = page.locator(".doc-drawer.open");
