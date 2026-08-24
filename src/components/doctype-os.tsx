@@ -6,14 +6,14 @@ import { useRouter } from "next/navigation";
 import {
   Activity, AlertTriangle, ArchiveRestore, BadgeDollarSign, BarChart3, BriefcaseBusiness,
   Building2, CalendarDays, CheckSquare, ChevronRight, CircleDollarSign, DatabaseBackup,
-  Download, FileKey2, Globe2, ImageIcon, KeyRound, LogOut, Mail, Menu, Pencil, Phone,
+  Download, FileKey2, FileText, Globe2, ImageIcon, KeyRound, LogOut, Mail, Menu, Pencil, Phone,
   Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
 
 type View = "dashboard" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
-type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email" | "image"; options?: string[]; required?: boolean; full?: boolean; hint?: string };
+type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email" | "image" | "document"; options?: string[]; required?: boolean; full?: boolean; hint?: string };
 type Config = { singular: string; title: string; fields: Field[]; columns: { key: string; label: string; format?: "money" | "badge" | "client" | "boolean" | "date" }[]; defaults: Record<string, unknown> };
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
 type ManagedUser = { id: string; name: string; email: string; role: Role; active: boolean; mustChangePassword: boolean };
@@ -28,6 +28,7 @@ const configs: Record<ModuleKey, Config> = {
       { key: "contact", label: "Contato principal" }, { key: "contactRole", label: "Cargo do contato" },
       { key: "contactEmail", label: "E-mail do contato", type: "email" }, { key: "contactPhone", label: "Telefone / WhatsApp" },
       { key: "instagram", label: "Instagram / rede principal" }, { key: "contractType", label: "Modelo de atendimento", type: "select", options: ["Mensalidade fixa", "Projeto", "Consultoria", "Permuta"] },
+      { key: "contractFile", label: "Contrato do cliente", type: "document", full: true, hint: "PDF, PNG, JPG ou WebP, até 2 MB." },
       { key: "services", label: "Serviços contratados", required: true, full: true },
       { key: "productIds", label: "Produtos contratados", type: "products", full: true },
       { key: "channels", label: "Canais sob gestão", hint: "Ex.: Instagram, Google Ads, LinkedIn, e-mail." },
@@ -41,7 +42,7 @@ const configs: Record<ModuleKey, Config> = {
       { key: "observations", label: "Observações", type: "textarea", full: true },
     ],
     columns: [{ key: "name", label: "Cliente" }, { key: "services", label: "Serviços" }, { key: "monthly", label: "Mensalidade", format: "money" }, { key: "renewal", label: "Renovação", format: "date" }, { key: "health", label: "Saúde", format: "badge" }, { key: "status", label: "Status", format: "badge" }],
-    defaults: { logoDataUrl: "", productIds: [], contractType: "Mensalidade fixa", monthly: 0, dueDay: 10, noticeDays: 30, health: "Saudável", status: "Ativo" },
+    defaults: { logoDataUrl: "", contractFile: { name: "", dataUrl: "" }, productIds: [], contractType: "Mensalidade fixa", monthly: 0, dueDay: 10, noticeDays: 30, health: "Saudável", status: "Ativo" },
   },
   accesses: {
     singular: "acesso", title: "Acessos dos clientes",
@@ -101,6 +102,11 @@ const dateLabel = (value: unknown) => value ? new Date(`${String(value)}T12:00:0
 const number = (value: unknown) => Number(value || 0);
 const text = (value: unknown) => String(value ?? "");
 const stringArray = (value: unknown) => Array.isArray(value) ? value.map(String) : [];
+const storedDocument = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { name: "", dataUrl: "" };
+  const file = value as Record<string, unknown>;
+  return { name: text(file.name), dataUrl: text(file.dataUrl) };
+};
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -271,6 +277,7 @@ function ClientsView({ records, search, setSearch, generatedAt, onAdd, onEdit, o
 function ClientCard({ record, onEdit, onDelete }: { record: AppRecord; onEdit: (r: AppRecord) => void; onDelete: (r: AppRecord) => void }) {
   const data = record.data;
   const logo = text(data.logoDataUrl);
+  const contract = storedDocument(data.contractFile);
   const initials = text(data.name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "CL";
   return <article className="client-card" role="row" aria-label={text(data.name)}>
     <div className="client-card-head">
@@ -286,6 +293,7 @@ function ClientCard({ record, onEdit, onDelete }: { record: AppRecord; onEdit: (
       <p><Mail /><span><b>E-mail</b>{text(data.contactEmail) || "Não informado"}</span></p>
     </div>
     {Boolean(data.website || data.instagram || data.channels) && <div className="client-foot"><Globe2 /> <span>{text(data.website || data.instagram || data.channels)}</span></div>}
+    {contract.dataUrl && <a className="client-contract-download" href={contract.dataUrl} download={contract.name || "contrato-do-cliente.pdf"}><FileText /><span><b>Contrato salvo</b>{contract.name || "Baixar documento"}</span><Download /></a>}
   </article>;
 }
 
@@ -348,6 +356,7 @@ function RecordModal({ module, record, clients, products, close, save }: { modul
 
 function FieldControl({ field, value, clients, products, setValue }: { field: Field; value: unknown; clients: AppRecord[]; products: AppRecord[]; setValue: (v: unknown) => void }) {
   if (field.type === "image") return <ImageUploadField field={field} value={value} setValue={setValue} />;
+  if (field.type === "document") return <DocumentUploadField field={field} value={value} setValue={setValue} />;
   if (field.type === "checkbox") return <label className={`field checkbox ${field.full ? "full" : ""}`}><input type="checkbox" checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} /><span>{field.label}</span></label>;
   if (field.type === "products") {
     const selected = stringArray(value);
@@ -374,6 +383,30 @@ function ImageUploadField({ field, value, setValue }: { field: Field; value: unk
     <div className="client-logo-uploader">
       <div className="client-logo-preview">{current.startsWith("data:image/") ? <Image src={current} alt="Prévia da logo do cliente" width={86} height={86} unoptimized /> : <ImageIcon />}</div>
       <div><label className="ghost upload-logo"><Upload size={16} /> {current ? "Trocar logo" : "Selecionar logo"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { selectLogo(event.target.files?.[0]); event.target.value = ""; }} /></label>{current && <button type="button" className="remove-logo" onClick={() => setValue("")}>Remover logo</button>}<small>{field.hint}</small>{error && <em>{error}</em>}</div>
+    </div>
+  </div>;
+}
+
+function DocumentUploadField({ field, value, setValue }: { field: Field; value: unknown; setValue: (v: unknown) => void }) {
+  const [error, setError] = useState("");
+  const current = storedDocument(value);
+  function selectDocument(file?: File) {
+    setError("");
+    if (!file) return;
+    if (!/(application\/pdf|image\/(png|jpeg|webp))/.test(file.type)) { setError("Use um arquivo PDF, PNG, JPG ou WebP."); return; }
+    if (file.size > 2_000_000) { setError("O contrato deve ter no máximo 2 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setValue({ name: file.name, dataUrl: String(reader.result || "") });
+    reader.onerror = () => setError("Não foi possível ler este documento.");
+    reader.readAsDataURL(file);
+  }
+  return <div className={`field client-document-field ${field.full ? "full" : ""}`}>
+    <span>{field.label}</span>
+    <div className="client-document-uploader">
+      <div className="client-document-icon"><FileText /></div>
+      <div className="client-document-copy"><strong>{current.name || "Nenhum contrato anexado"}</strong><small>{field.hint}</small>{error && <em>{error}</em>}</div>
+      <label className="ghost upload-document"><Upload size={16} /> {current.dataUrl ? "Substituir" : "Anexar contrato"}<input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(event) => { selectDocument(event.target.files?.[0]); event.target.value = ""; }} /></label>
+      {current.dataUrl && <><a className="ghost preview-document" href={current.dataUrl} download={current.name || "contrato.pdf"}><Download size={16} /> Baixar</a><button type="button" className="remove-document" onClick={() => setValue({ name: "", dataUrl: "" })}>Remover</button></>}
     </div>
   </div>;
 }

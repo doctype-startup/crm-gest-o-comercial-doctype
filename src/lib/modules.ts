@@ -20,6 +20,7 @@ export const moduleSchemas: Record<RecordModuleKey, z.ZodType<Record<string, unk
     contactPhone: text,
     instagram: text,
     contractType: z.enum(["Mensalidade fixa", "Projeto", "Consultoria", "Permuta"]).default("Mensalidade fixa"),
+    contractFile: z.object({ name: z.string().max(250).default(""), dataUrl: longText }).default({ name: "", dataUrl: "" }),
     services: text,
     productIds: z.array(z.string().max(100)).default([]),
     channels: text,
