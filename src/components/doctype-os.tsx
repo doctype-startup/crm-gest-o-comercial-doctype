@@ -4,15 +4,16 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Activity, AlertTriangle, ArchiveRestore, BarChart3, BriefcaseBusiness, CheckSquare,
-  ChevronRight, CircleDollarSign, DatabaseBackup, Download, FileKey2, KeyRound, LogOut,
-  Menu, Pencil, Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Users, X,
+  Activity, AlertTriangle, ArchiveRestore, BadgeDollarSign, BarChart3, BriefcaseBusiness,
+  Building2, CalendarDays, CheckSquare, ChevronRight, CircleDollarSign, DatabaseBackup,
+  Download, FileKey2, Globe2, ImageIcon, KeyRound, LogOut, Mail, Menu, Pencil, Phone,
+  Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
 
 type View = "dashboard" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
-type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email"; options?: string[]; required?: boolean; full?: boolean };
+type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email" | "image"; options?: string[]; required?: boolean; full?: boolean; hint?: string };
 type Config = { singular: string; title: string; fields: Field[]; columns: { key: string; label: string; format?: "money" | "badge" | "client" | "boolean" | "date" }[]; defaults: Record<string, unknown> };
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
 type ManagedUser = { id: string; name: string; email: string; role: Role; active: boolean; mustChangePassword: boolean };
@@ -21,9 +22,18 @@ const configs: Record<ModuleKey, Config> = {
   clients: {
     singular: "cliente", title: "Clientes 360°",
     fields: [
+      { key: "logoDataUrl", label: "Logo do cliente", type: "image", full: true, hint: "PNG, JPG ou WebP, até 1,5 MB." },
       { key: "name", label: "Nome do cliente", required: true }, { key: "document", label: "CPF/CNPJ" },
-      { key: "contact", label: "Contato principal" }, { key: "services", label: "Serviços contratados", required: true },
+      { key: "segment", label: "Segmento / mercado" }, { key: "website", label: "Site", type: "url" },
+      { key: "contact", label: "Contato principal" }, { key: "contactRole", label: "Cargo do contato" },
+      { key: "contactEmail", label: "E-mail do contato", type: "email" }, { key: "contactPhone", label: "Telefone / WhatsApp" },
+      { key: "instagram", label: "Instagram / rede principal" }, { key: "contractType", label: "Modelo de atendimento", type: "select", options: ["Mensalidade fixa", "Projeto", "Consultoria", "Permuta"] },
+      { key: "services", label: "Serviços contratados", required: true, full: true },
       { key: "productIds", label: "Produtos contratados", type: "products", full: true },
+      { key: "channels", label: "Canais sob gestão", hint: "Ex.: Instagram, Google Ads, LinkedIn, e-mail." },
+      { key: "contentPillars", label: "Pilares de conteúdo" },
+      { key: "goals", label: "Objetivos e metas do cliente", type: "textarea", full: true },
+      { key: "scope", label: "Escopo e entregas recorrentes", type: "textarea", full: true },
       { key: "monthly", label: "Mensalidade", type: "number" }, { key: "dueDay", label: "Dia do vencimento", type: "number" },
       { key: "startDate", label: "Início", type: "date" }, { key: "renewal", label: "Renovação", type: "date" },
       { key: "noticeDays", label: "Aviso prévio (dias)", type: "number" }, { key: "responsible", label: "Responsável DOCTYPE" },
@@ -31,7 +41,7 @@ const configs: Record<ModuleKey, Config> = {
       { key: "observations", label: "Observações", type: "textarea", full: true },
     ],
     columns: [{ key: "name", label: "Cliente" }, { key: "services", label: "Serviços" }, { key: "monthly", label: "Mensalidade", format: "money" }, { key: "renewal", label: "Renovação", format: "date" }, { key: "health", label: "Saúde", format: "badge" }, { key: "status", label: "Status", format: "badge" }],
-    defaults: { productIds: [], monthly: 0, dueDay: 10, noticeDays: 30, health: "Saudável", status: "Ativo" },
+    defaults: { logoDataUrl: "", productIds: [], contractType: "Mensalidade fixa", monthly: 0, dueDay: 10, noticeDays: 30, health: "Saudável", status: "Ativo" },
   },
   accesses: {
     singular: "acesso", title: "Acessos dos clientes",
@@ -183,7 +193,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
             <>
               {user.mustChangePassword && <div className="security-banner"><KeyRound size={20} /><div><strong>Troque a senha provisória.</strong><span>Crie uma senha pessoal para proteger seu acesso.</span></div><button onClick={() => setAccountPassword(true)}>Trocar agora</button></div>}
               {view === "dashboard" && <Dashboard records={records} alerts={state.alerts} openView={openView} clientName={clientName} role={user.role} />}
-              {view === "clients" && <ModuleView module="clients" records={filtered("clients")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "clients" })} onEdit={(record) => setModal({ module: "clients", record })} onDelete={(record) => setConfirmDelete({ module: "clients", record })} />}
+              {view === "clients" && <ClientsView records={clients} search={search} setSearch={setSearch} generatedAt={state.generatedAt} onAdd={() => setModal({ module: "clients" })} onEdit={(record) => setModal({ module: "clients", record })} onDelete={(record) => setConfirmDelete({ module: "clients", record })} />}
               {view === "accesses" && <><div className="notice"><ShieldCheck size={20} /><div><strong>Segurança primeiro.</strong><span>Nunca informe senhas aqui. Guarde somente a referência ao cofre seguro.</span></div></div><ModuleView module="accesses" records={filtered("accesses")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "accesses" })} onEdit={(record) => setModal({ module: "accesses", record })} onDelete={(record) => setConfirmDelete({ module: "accesses", record })} /></>}
               {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} />}
               {view === "tasks" && <ModuleView module="tasks" records={filtered("tasks")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "tasks" })} onEdit={(record) => setModal({ module: "tasks", record })} onDelete={(record) => setConfirmDelete({ module: "tasks", record })} />}
@@ -229,6 +239,55 @@ function Dashboard({ records, alerts, openView, clientName, role }: { records: A
 function Kpi({ label, value, meta, danger }: { label: string; value: string; meta: string; danger?: boolean }) { return <article className={`kpi-card ${danger ? "danger-kpi" : ""}`}><span>{label}</span><strong>{value}</strong><small>{meta}</small></article>; }
 function Quick({ label, value, onClick }: { label: string; value: number; onClick: () => void }) { return <button className="quick" onClick={onClick}><div><span>{label}</span><strong>{value}</strong></div><ChevronRight /></button>; }
 function SectionTitle({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) { return <div className="section-title"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>{action}</div>; }
+
+function ClientsView({ records, search, setSearch, generatedAt, onAdd, onEdit, onDelete }: { records: AppRecord[]; search: string; setSearch: (v: string) => void; generatedAt: string; onAdd: () => void; onEdit: (r: AppRecord) => void; onDelete: (r: AppRecord) => void }) {
+  const visible = records.filter((record) => JSON.stringify(record.data).toLowerCase().includes(search.toLowerCase()));
+  const active = records.filter((record) => record.data.status === "Ativo");
+  const mrr = active.reduce((sum, record) => sum + number(record.data.monthly), 0);
+  const attention = active.filter((record) => record.data.health === "Atenção" || record.data.health === "Risco").length;
+  const baseDate = new Date(generatedAt).getTime();
+  const renewals = active.filter((record) => {
+    if (!record.data.renewal) return false;
+    const days = Math.ceil((new Date(`${text(record.data.renewal)}T12:00:00`).getTime() - baseDate) / 86400000);
+    return days >= 0 && days <= 30;
+  }).length;
+
+  return <section className="stack clients-workspace">
+    <div className="clients-hero">
+      <div><span>CARTEIRA DA AGÊNCIA</span><h2>Clientes, contratos e contexto em um só lugar.</h2><p>Centralize marcas, contatos, escopo, canais, metas e informações dos clientes recorrentes.</p></div>
+      <button className="primary" onClick={onAdd}><Plus size={17} /> Novo cliente</button>
+    </div>
+    <div className="client-kpis">
+      <Kpi label="Clientes ativos" value={String(active.length)} meta={`${records.length} na carteira`} />
+      <Kpi label="MRR da carteira" value={money(mrr)} meta="Mensalidades ativas" />
+      <Kpi label="Pedem atenção" value={String(attention)} meta="Saúde em atenção ou risco" danger={attention > 0} />
+      <Kpi label="Renovam em 30 dias" value={String(renewals)} meta="Contratos ativos" />
+    </div>
+    <div className="clients-toolbar"><SearchBox value={search} setValue={setSearch} /><span>{visible.length} cliente{visible.length === 1 ? "" : "s"}</span></div>
+    {visible.length ? <div className="client-grid" role="table" aria-label="Carteira de clientes">{visible.map((record) => <ClientCard key={record.id} record={record} onEdit={onEdit} onDelete={onDelete} />)}</div> : <div className="empty-state"><Building2 /><h3>Nenhum cliente encontrado.</h3><p>{search ? "Tente buscar por outro nome, serviço ou contato." : "Cadastre o primeiro cliente fixo da agência."}</p>{!search && <button className="primary" onClick={onAdd}><Plus size={17} /> Novo cliente</button>}</div>}
+  </section>;
+}
+
+function ClientCard({ record, onEdit, onDelete }: { record: AppRecord; onEdit: (r: AppRecord) => void; onDelete: (r: AppRecord) => void }) {
+  const data = record.data;
+  const logo = text(data.logoDataUrl);
+  const initials = text(data.name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "CL";
+  return <article className="client-card" role="row" aria-label={text(data.name)}>
+    <div className="client-card-head">
+      <div className="client-logo">{logo.startsWith("data:image/") ? <Image src={logo} alt={`Logo de ${text(data.name)}`} width={72} height={72} unoptimized /> : <span>{initials}</span>}</div>
+      <div className="client-identity"><div><Badge value={text(data.status)} /><Badge value={text(data.health)} /></div><h3>{text(data.name)}</h3><p>{text(data.segment) || text(data.services) || "Segmento não informado"}</p></div>
+      <div className="client-card-actions"><button aria-label="Editar cliente" onClick={() => onEdit(record)}><Pencil size={16} /></button><button className="delete" aria-label="Excluir cliente" onClick={() => onDelete(record)}><Trash2 size={16} /></button></div>
+    </div>
+    <div className="client-contract-strip"><div><BadgeDollarSign /><span>Mensalidade<strong>{money(data.monthly)}</strong></span></div><div><CalendarDays /><span>Renovação<strong>{dateLabel(data.renewal)}</strong></span></div></div>
+    <div className="client-details">
+      <p><BriefcaseBusiness /><span><b>Serviços</b>{text(data.services) || "Não informados"}</span></p>
+      <p><Users /><span><b>Responsável</b>{text(data.responsible) || "Não definido"}</span></p>
+      <p><Phone /><span><b>Contato</b>{text(data.contact) || text(data.contactPhone) || "Não informado"}</span></p>
+      <p><Mail /><span><b>E-mail</b>{text(data.contactEmail) || "Não informado"}</span></p>
+    </div>
+    {(data.website || data.instagram || data.channels) && <div className="client-foot"><Globe2 /> <span>{text(data.website || data.instagram || data.channels)}</span></div>}
+  </article>;
+}
 
 function ModuleView({ module, records, search, setSearch, clientName, onAdd, onEdit, onDelete }: { module: ModuleKey; records: AppRecord[]; search: string; setSearch: (v: string) => void; clientName: (id: unknown) => string; onAdd: () => void; onEdit: (r: AppRecord) => void; onDelete: (r: AppRecord) => void }) {
   const config = configs[module];
@@ -288,12 +347,35 @@ function RecordModal({ module, record, clients, products, close, save }: { modul
 }
 
 function FieldControl({ field, value, clients, products, setValue }: { field: Field; value: unknown; clients: AppRecord[]; products: AppRecord[]; setValue: (v: unknown) => void }) {
+  if (field.type === "image") return <ImageUploadField field={field} value={value} setValue={setValue} />;
   if (field.type === "checkbox") return <label className={`field checkbox ${field.full ? "full" : ""}`}><input type="checkbox" checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} /><span>{field.label}</span></label>;
   if (field.type === "products") {
     const selected = stringArray(value);
     return <div className={`field commercial-picker ${field.full ? "full" : ""}`}><span>{field.label}</span><div>{products.filter((product) => product.data.status === "Ativo").map((product) => { const active = selected.includes(product.id); return <button type="button" key={product.id} className={active ? "selected" : ""} onClick={() => setValue(active ? selected.filter((id) => id !== product.id) : [...selected, product.id])}><strong>{text(product.data.name)}</strong><small>{money(product.data.price)}</small></button>; })}{!products.length && <em>Cadastre um produto para vinculá-lo ao cliente.</em>}</div></div>;
   }
-  return <label className={`field ${field.full ? "full" : ""}`}><span>{field.label}{field.required && " *"}</span>{field.type === "textarea" ? <textarea value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)} /> : field.type === "select" ? <select value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)}>{field.options?.map((option) => <option key={option}>{option}</option>)}</select> : field.type === "client" ? <select value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)}><option value="">Sem cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{text(client.data.name)}</option>)}</select> : <input type={field.type || "text"} step={field.type === "number" ? "0.01" : undefined} min={field.type === "number" ? "0" : undefined} value={text(value)} required={field.required} onChange={(e) => setValue(field.type === "number" ? Number(e.target.value) : e.target.value)} />}</label>;
+  return <label className={`field ${field.full ? "full" : ""}`}><span>{field.label}{field.required && " *"}</span>{field.type === "textarea" ? <textarea value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)} /> : field.type === "select" ? <select value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)}>{field.options?.map((option) => <option key={option}>{option}</option>)}</select> : field.type === "client" ? <select value={text(value)} required={field.required} onChange={(e) => setValue(e.target.value)}><option value="">Sem cliente</option>{clients.map((client) => <option key={client.id} value={client.id}>{text(client.data.name)}</option>)}</select> : <input type={field.type || "text"} step={field.type === "number" ? "0.01" : undefined} min={field.type === "number" ? "0" : undefined} value={text(value)} required={field.required} onChange={(e) => setValue(field.type === "number" ? Number(e.target.value) : e.target.value)} />}{field.hint && <small className="field-hint">{field.hint}</small>}</label>;
+}
+
+function ImageUploadField({ field, value, setValue }: { field: Field; value: unknown; setValue: (v: unknown) => void }) {
+  const [error, setError] = useState("");
+  const current = text(value);
+  function selectLogo(file?: File) {
+    setError("");
+    if (!file) return;
+    if (!/image\/(png|jpeg|webp)/.test(file.type)) { setError("Use uma imagem PNG, JPG ou WebP."); return; }
+    if (file.size > 1_500_000) { setError("A imagem deve ter no máximo 1,5 MB."); return; }
+    const reader = new FileReader();
+    reader.onload = () => setValue(String(reader.result || ""));
+    reader.onerror = () => setError("Não foi possível ler esta imagem.");
+    reader.readAsDataURL(file);
+  }
+  return <div className={`field client-logo-field ${field.full ? "full" : ""}`}>
+    <span>{field.label}</span>
+    <div className="client-logo-uploader">
+      <div className="client-logo-preview">{current.startsWith("data:image/") ? <Image src={current} alt="Prévia da logo do cliente" width={86} height={86} unoptimized /> : <ImageIcon />}</div>
+      <div><label className="ghost upload-logo"><Upload size={16} /> {current ? "Trocar logo" : "Selecionar logo"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { selectLogo(event.target.files?.[0]); event.target.value = ""; }} /></label>{current && <button type="button" className="remove-logo" onClick={() => setValue("")}>Remover logo</button>}<small>{field.hint}</small>{error && <em>{error}</em>}</div>
+    </div>
+  </div>;
 }
 
 function ConfirmModal({ title, text: copy, close, confirm }: { title: string; text: string; close: () => void; confirm: () => Promise<void> }) { const [busy, setBusy] = useState(false); const [error, setError] = useState(""); return <div className="modal-backdrop"><div className="modal confirm-modal"><div className="danger-icon"><Trash2 /></div><h2>{title}</h2><p>{copy}</p>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button className="ghost" onClick={close}>Cancelar</button><button className="danger-button" disabled={busy} onClick={() => { setBusy(true); confirm().catch((e) => { setError(e.message); setBusy(false); }); }}>{busy ? "Excluindo…" : "Excluir"}</button></div></div></div>; }
