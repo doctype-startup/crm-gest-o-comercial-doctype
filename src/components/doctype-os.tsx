@@ -285,7 +285,7 @@ function ClientCard({ record, onEdit, onDelete }: { record: AppRecord; onEdit: (
       <p><Phone /><span><b>Contato</b>{text(data.contact) || text(data.contactPhone) || "Não informado"}</span></p>
       <p><Mail /><span><b>E-mail</b>{text(data.contactEmail) || "Não informado"}</span></p>
     </div>
-    {(data.website || data.instagram || data.channels) && <div className="client-foot"><Globe2 /> <span>{text(data.website || data.instagram || data.channels)}</span></div>}
+    {Boolean(data.website || data.instagram || data.channels) && <div className="client-foot"><Globe2 /> <span>{text(data.website || data.instagram || data.channels)}</span></div>}
   </article>;
 }
 
