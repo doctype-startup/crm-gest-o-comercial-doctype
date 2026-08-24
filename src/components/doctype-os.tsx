@@ -254,7 +254,7 @@ function ClientsView({ records, search, setSearch, generatedAt, onAdd, onEdit, o
 
   return <section className="stack clients-workspace">
     <div className="clients-hero">
-      <div><span>CARTEIRA DA AGÊNCIA</span><h2>Clientes, contratos e contexto em um só lugar.</h2><p>Centralize marcas, contatos, escopo, canais, metas e informações dos clientes recorrentes.</p></div>
+      <div><span>CARTEIRA DE CLIENTES</span><h2>Clientes, contratos e contexto em um só lugar.</h2><p>Centralize marcas, contatos, escopo, canais, metas e informações dos clientes recorrentes.</p></div>
       <button className="primary" onClick={onAdd}><Plus size={17} /> Novo cliente</button>
     </div>
     <div className="client-kpis">
