@@ -36,7 +36,7 @@ test("login, CRUD, persistência e todos os módulos", async ({ page }, testInfo
   await page.locator(".clients-hero").getByRole("button", { name: /Novo cliente/ }).click();
   await page.getByLabel("Nome do cliente").fill(createdName);
   await page.getByLabel("Serviços contratados").fill("Marketing e CRM");
-  await page.getByLabel("Mensalidade").fill("1500");
+  await page.getByRole("spinbutton", { name: "Mensalidade" }).fill("1500");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText(createdName)).toBeVisible();
 

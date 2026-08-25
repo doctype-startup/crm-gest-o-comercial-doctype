@@ -5,7 +5,7 @@ async function login(page: Page) {
   await page.getByLabel("E-mail").fill("admin@doctype.local");
   await page.getByLabel("Senha").fill("Doctype@2026");
   await page.getByRole("button", { name: "Entrar no DOCTYPE OS" }).click();
-  await expect(page.getByRole("heading", { name: "Visão Geral" })).toBeVisible();
+  await expect(page.locator(".topbar h1")).toHaveText("Visão Geral", { timeout: 15_000 });
 }
 
 async function openNav(page: Page, testInfo: TestInfo, label: string) {
