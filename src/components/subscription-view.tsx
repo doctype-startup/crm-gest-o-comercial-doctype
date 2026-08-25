@@ -64,7 +64,7 @@ export function SubscriptionView() {
   }, []);
 
   if (loading) return <div className="subscription-loading"><i /> Carregando assinatura…</div>;
-  if (error || !subscription) return <div className="empty-state"><CreditCard /><h3>Não foi possível carregar sua assinatura.</h3><p>{error}</p><button className="primary" onClick={() => void load()}><RefreshCw /> Tentar novamente</button></div>;
+  if (!subscription) return <div className="empty-state"><CreditCard /><h3>Não foi possível carregar sua assinatura.</h3><p>{error}</p><button className="primary" onClick={() => void load()}><RefreshCw /> Tentar novamente</button></div>;
 
   const paymentClass = subscription.paymentStatus.toLowerCase().replaceAll(" ", "-");
   return <div className="subscription-page stack">
