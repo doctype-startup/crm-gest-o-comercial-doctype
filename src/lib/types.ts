@@ -81,6 +81,14 @@ export interface SessionsTable {
   created_at: string;
 }
 
+export interface LoginRateLimitsTable {
+  key_hash: string;
+  attempts: number;
+  window_started_at: string;
+  locked_until: string;
+  updated_at: string;
+}
+
 export interface RecordsTable {
   id: string;
   org_id: string;
@@ -117,6 +125,7 @@ export interface Database {
   stripe_events: StripeEventsTable;
   users: UsersTable;
   sessions: SessionsTable;
+  login_rate_limits: LoginRateLimitsTable;
   records: RecordsTable;
   audit_logs: AuditLogsTable;
   settings: SettingsTable;

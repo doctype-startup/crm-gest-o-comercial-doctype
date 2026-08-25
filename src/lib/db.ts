@@ -149,6 +149,16 @@ async function createSchema() {
     .execute();
 
   await db.schema
+    .createTable("login_rate_limits")
+    .ifNotExists()
+    .addColumn("key_hash", "varchar(64)", (c) => c.primaryKey())
+    .addColumn("attempts", "integer", (c) => c.notNull().defaultTo(0))
+    .addColumn("window_started_at", "varchar(40)", (c) => c.notNull())
+    .addColumn("locked_until", "varchar(40)", (c) => c.notNull().defaultTo(""))
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
     .createTable("records")
     .ifNotExists()
     .addColumn("id", "varchar(36)", (c) => c.primaryKey())
@@ -221,6 +231,7 @@ async function createSchema() {
   }
 
   await sql`delete from sessions where expires_at < ${new Date().toISOString()}`.execute(db);
+  await sql`delete from login_rate_limits where updated_at < ${new Date(Date.now() - 86400000).toISOString()}`.execute(db);
 }
 
 export async function ensureSchema() {

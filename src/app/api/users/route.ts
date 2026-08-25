@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { passwordSchema } from "@/lib/account-security";
 import { hashPassword, requireSession } from "@/lib/auth";
 import { audit, db } from "@/lib/db";
 import { assertSameOrigin, apiError, HttpError } from "@/lib/http";
@@ -8,7 +9,7 @@ const createSchema = z.object({
   name: z.string().trim().min(2).max(200),
   email: z.string().trim().email().max(200),
   role: z.enum(["CEO_ADMIN", "OPERATIONS", "FINANCE"]),
-  password: z.string().min(10).max(200),
+  password: passwordSchema,
 });
 
 export async function GET() {

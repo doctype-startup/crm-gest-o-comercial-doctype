@@ -1,8 +1,9 @@
 import { hash, verify } from "@node-rs/argon2";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import type { Kysely, Transaction } from "kysely";
 import { cookies } from "next/headers";
 import { db, ensureSchema, audit } from "./db";
-import type { Role, SessionUser } from "./types";
+import type { Database, Role, SessionUser } from "./types";
 
 const COOKIE_NAME = "doctype_os_session";
 const SESSION_DAYS = 7;
@@ -78,6 +79,34 @@ export async function setSessionCookie(token: string, expires: Date) {
     path: "/",
     expires,
   });
+}
+
+type SessionExecutor = Kysely<Database> | Transaction<Database>;
+
+async function replaceSessionsWith(executor: SessionExecutor, userId: string) {
+  const token = randomBytes(32).toString("base64url");
+  const now = new Date();
+  const expires = new Date(now.getTime() + SESSION_DAYS * 86400000);
+  await executor.deleteFrom("sessions").where("user_id", "=", userId).execute();
+  await executor.insertInto("sessions").values({
+    id: randomUUID(),
+    user_id: userId,
+    token_hash: tokenHash(token),
+    expires_at: expires.toISOString(),
+    created_at: now.toISOString(),
+  }).execute();
+  return { token, expires };
+}
+
+export async function rotateUserSessions(userId: string, executor?: SessionExecutor) {
+  await ensureSchema();
+  if (executor) return replaceSessionsWith(executor, userId);
+  return db.transaction().execute((trx) => replaceSessionsWith(trx, userId));
+}
+
+export async function revokeUserSessions(userId: string, executor: SessionExecutor = db) {
+  await ensureSchema();
+  await executor.deleteFrom("sessions").where("user_id", "=", userId).execute();
 }
 
 export async function getSession(): Promise<SessionUser | null> {
