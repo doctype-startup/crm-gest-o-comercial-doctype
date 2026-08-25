@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { db, ensureSchema } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
-import { invoiceSubscriptionId, isoDateFromUnix, stripeId } from "@/lib/stripe-billing";
+import { invoiceSubscriptionId, isoDateFromUnix, stripeEventStream, stripeId } from "@/lib/stripe-billing";
 
 export const runtime = "nodejs";
 
@@ -48,14 +48,20 @@ export async function POST(request: Request) {
   await ensureSchema();
   const orgId = await organizationForEvent(event);
   if (!orgId) return Response.json({ received: true, ignored: true });
+  const stream = stripeEventStream(event.type);
+  if (!stream) return Response.json({ received: true, ignored: true });
 
   await db.transaction().execute(async (trx) => {
-    const duplicate = await trx.selectFrom("stripe_events").select("id").where("id", "=", event.id).executeTakeFirst();
-    if (duplicate) return;
-
-    const newest = await trx.selectFrom("stripe_events").select("event_created").where("org_id", "=", orgId).orderBy("event_created", "desc").executeTakeFirst();
-    const isCurrent = !newest || event.created >= newest.event_created;
     const now = new Date().toISOString();
+    const inserted = await trx.insertInto("stripe_events")
+      .values({ id: event.id, org_id: orgId, type: event.type, event_created: event.created, processed_at: now })
+      .onConflict((conflict) => conflict.column("id").doNothing())
+      .returning("id")
+      .executeTakeFirst();
+    if (!inserted) return;
+
+    const cursor = await trx.selectFrom("stripe_event_cursors").select("event_created").where("org_id", "=", orgId).where("stream", "=", stream).executeTakeFirst();
+    const isCurrent = !cursor || event.created >= cursor.event_created;
 
     if (isCurrent && event.type.startsWith("checkout.session.")) {
       const checkout = event.data.object as Stripe.Checkout.Session;
@@ -99,7 +105,12 @@ export async function POST(request: Request) {
         : subscriptionUpdate).where("org_id", "=", orgId).execute();
     }
 
-    await trx.insertInto("stripe_events").values({ id: event.id, org_id: orgId, type: event.type, event_created: event.created, processed_at: now }).execute();
+    if (isCurrent) {
+      await trx.insertInto("stripe_event_cursors")
+        .values({ org_id: orgId, stream, event_created: event.created, event_id: event.id, updated_at: now })
+        .onConflict((conflict) => conflict.columns(["org_id", "stream"]).doUpdateSet({ event_created: event.created, event_id: event.id, updated_at: now }))
+        .execute();
+    }
   });
 
   return Response.json({ received: true });

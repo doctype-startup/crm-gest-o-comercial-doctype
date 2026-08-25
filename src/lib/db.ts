@@ -139,6 +139,17 @@ async function createSchema() {
     .execute();
 
   await db.schema
+    .createTable("stripe_event_cursors")
+    .ifNotExists()
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("stream", "varchar(30)", (c) => c.notNull())
+    .addColumn("event_created", "integer", (c) => c.notNull())
+    .addColumn("event_id", "varchar(255)", (c) => c.notNull())
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .addPrimaryKeyConstraint("stripe_event_cursors_pk", ["org_id", "stream"])
+    .execute();
+
+  await db.schema
     .createTable("sessions")
     .ifNotExists()
     .addColumn("id", "varchar(36)", (c) => c.primaryKey())

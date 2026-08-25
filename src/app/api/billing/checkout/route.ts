@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { audit, db } from "@/lib/db";
 import { apiError, assertSameOrigin, HttpError } from "@/lib/http";
 import { getStripe, stripeIsTestMode } from "@/lib/stripe";
-import { stripeCycle } from "@/lib/stripe-billing";
+import { checkoutIdempotencyKey, stripeCycle } from "@/lib/stripe-billing";
 
 export const runtime = "nodejs";
 
@@ -111,6 +111,13 @@ export async function POST(request: Request) {
       subscription_data: { metadata },
       success_url: `${origin}/os?billing=success`,
       cancel_url: `${origin}/os?billing=cancelled`,
+    }, {
+      idempotencyKey: checkoutIdempotencyKey({
+        orgId: session.orgId,
+        plan: billing.plan,
+        monthlyPrice: Number(billing.monthly_price),
+        billingCycle: billing.billing_cycle,
+      }),
     });
 
     if (!checkout.url) throw new HttpError(502, "A Stripe não retornou a página segura de autorização.");

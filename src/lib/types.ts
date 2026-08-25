@@ -60,6 +60,14 @@ export interface StripeEventsTable {
   processed_at: string;
 }
 
+export interface StripeEventCursorsTable {
+  org_id: string;
+  stream: "checkout" | "invoice" | "subscription";
+  event_created: number;
+  event_id: string;
+  updated_at: string;
+}
+
 export interface UsersTable {
   id: string;
   org_id: string;
@@ -123,6 +131,7 @@ export interface Database {
   platform_admins: PlatformAdminsTable;
   saas_billing: SaasBillingTable;
   stripe_events: StripeEventsTable;
+  stripe_event_cursors: StripeEventCursorsTable;
   users: UsersTable;
   sessions: SessionsTable;
   login_rate_limits: LoginRateLimitsTable;
