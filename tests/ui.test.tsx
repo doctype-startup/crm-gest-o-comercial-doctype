@@ -20,12 +20,20 @@ beforeEach(() => {
     const url = String(input);
     if (url === "/api/state") return Response.json(initialState);
     if (url === "/api/users") return Response.json({ users: [{ id: "u1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", active: true, mustChangePassword: false }] });
+    if (url === "/api/admin/organizations") return Response.json({ organizations: [] });
     return Response.json({ ok: true, record: client });
   }) as typeof fetch;
 });
 afterEach(() => cleanup());
 
 describe("jornadas visíveis do DOCTYPE OS", () => {
+  it("exibe o Admin SaaS somente para o administrador mestre", async () => {
+    const actor = userEvent.setup();
+    render(<DoctypeOS initialState={{ ...initialState, user: { ...user, isSaasMaster: true } }} />);
+    await actor.click(screen.getByRole("button", { name: "Admin SaaS" }));
+    expect(await screen.findByRole("heading", { name: "Admin SaaS Mestre" })).toBeTruthy();
+  });
+
   it("abre todos os módulos do menu sem botão inerte", async () => {
     const actor = userEvent.setup();
     render(<DoctypeOS initialState={initialState} />);

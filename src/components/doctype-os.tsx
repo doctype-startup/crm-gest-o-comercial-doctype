@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import {
   Activity, AlertTriangle, ArchiveRestore, BadgeDollarSign, BarChart3, BriefcaseBusiness,
   Building2, CalendarDays, CheckSquare, ChevronRight, CircleDollarSign, DatabaseBackup,
-  Download, FileKey2, FileText, Globe2, ImageIcon, KeyRound, LogOut, Mail, Menu, Pencil, Phone,
+  Crown, Download, FileKey2, FileText, Globe2, ImageIcon, KeyRound, LogOut, Mail, Menu, Pencil, Phone,
   Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
+import { SaasAdmin } from "@/components/saas-admin";
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
 
-type View = "dashboard" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
+type View = "dashboard" | "saas" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
 type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email" | "image" | "document"; options?: string[]; required?: boolean; full?: boolean; hint?: string };
 type Config = { singular: string; title: string; fields: Field[]; columns: { key: string; label: string; format?: "money" | "badge" | "client" | "boolean" | "date" }[]; defaults: Record<string, unknown> };
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
@@ -88,8 +89,8 @@ const configs: Record<ModuleKey, Config> = {
   },
 };
 
-const nav: { id: View; label: string; icon: typeof BarChart3; roles?: Role[] }[] = [
-  { id: "dashboard", label: "Visão Geral", icon: BarChart3 }, { id: "clients", label: "Clientes 360°", icon: BriefcaseBusiness },
+const nav: { id: View; label: string; icon: typeof BarChart3; roles?: Role[]; masterOnly?: boolean }[] = [
+  { id: "dashboard", label: "Visão Geral", icon: BarChart3 }, { id: "saas", label: "Admin SaaS", icon: Crown, roles: ["CEO_ADMIN"], masterOnly: true }, { id: "clients", label: "Clientes 360°", icon: BriefcaseBusiness },
   { id: "accesses", label: "Acessos", icon: FileKey2, roles: ["CEO_ADMIN", "OPERATIONS"] }, { id: "finance", label: "Financeiro", icon: CircleDollarSign, roles: ["CEO_ADMIN", "FINANCE"] },
   { id: "tasks", label: "Operação", icon: CheckSquare, roles: ["CEO_ADMIN", "OPERATIONS"] }, { id: "renewals", label: "Renovações", icon: RotateCcw },
   { id: "crm", label: "DOC CRM", icon: Activity }, { id: "team", label: "Equipe", icon: Users, roles: ["CEO_ADMIN", "OPERATIONS"] },
@@ -187,18 +188,19 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
       <aside className={menuOpen ? "sidebar open" : "sidebar"}>
         <button className="mobile-close" aria-label="Fechar menu" onClick={() => setMenuOpen(false)}><X /></button>
         <div className="brand"><Image src={SIDEBAR_LOGO_IMAGE} alt="Símbolo DOCTYPE" width={58} height={58} priority unoptimized /><div><strong>DOCTYPE OS</strong><span>Gestão interna</span></div></div>
-        <nav>{nav.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => openView(item.id)}><item.icon size={18} /><span>{item.label}</span>{item.id === "monitor" && state?.alerts.length ? <b className="nav-count">{state.alerts.length}</b> : null}</button>)}</nav>
+        <nav>{nav.filter((item) => (!item.roles || item.roles.includes(user.role)) && (!item.masterOnly || user.isSaasMaster)).map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => openView(item.id)}><item.icon size={18} /><span>{item.label}</span>{item.id === "monitor" && state?.alerts.length ? <b className="nav-count">{state.alerts.length}</b> : null}</button>)}</nav>
         <div className="sidebar-user"><span>{user.name}</span><small>{user.role === "CEO_ADMIN" ? "CEO / Admin" : user.role === "FINANCE" ? "Financeiro" : "Operação"}</small><button onClick={() => setAccountPassword(true)}><KeyRound size={15} /> Alterar minha senha</button><button onClick={logout}><LogOut size={15} /> Sair com segurança</button></div>
         <footer>Mais que marketing.<br /><strong>Estrutura para crescer.</strong></footer>
       </aside>
       {menuOpen && <button className="sidebar-overlay" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
       <main className="workspace">
-        <header className="topbar"><button className="menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}><Menu /></button><div><h1>{titles[view]}</h1><p>Marketing • CRM • Inteligência Artificial</p></div><div className="top-actions"><button className="ghost icon-button" aria-label="Atualizar dados" onClick={() => refresh()}><RefreshCw size={17} /></button>{user.role === "CEO_ADMIN" && <button className="ghost backup-top" onClick={() => downloadBackup().catch((e) => setError(e.message))}><DatabaseBackup size={17} /> Backup</button>}{user.role !== "FINANCE" && <button className="primary new-top" onClick={() => setModal({ module: "clients" })}><Plus size={17} /> Cliente</button>}</div></header>
+        <header className="topbar"><button className="menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}><Menu /></button><div><h1>{titles[view]}</h1><p>Marketing • CRM • Inteligência Artificial</p></div><div className="top-actions"><button className="ghost icon-button" aria-label="Atualizar dados" onClick={() => refresh()}><RefreshCw size={17} /></button>{user.role === "CEO_ADMIN" && <button className="ghost backup-top" onClick={() => downloadBackup().catch((e) => setError(e.message))}><DatabaseBackup size={17} /> Backup</button>}{user.role !== "FINANCE" && view !== "saas" && <button className="primary new-top" onClick={() => setModal({ module: "clients" })}><Plus size={17} /> Cliente</button>}</div></header>
         <section className="content">
           {loading ? <LoadingState /> : error ? <ErrorState error={error} retry={() => refresh()} /> : (
             <>
               {user.mustChangePassword && <div className="security-banner"><KeyRound size={20} /><div><strong>Troque a senha provisória.</strong><span>Crie uma senha pessoal para proteger seu acesso.</span></div><button onClick={() => setAccountPassword(true)}>Trocar agora</button></div>}
               {view === "dashboard" && <Dashboard records={records} alerts={state.alerts} openView={openView} clientName={clientName} role={user.role} />}
+              {view === "saas" && user.isSaasMaster && <SaasAdmin notify={notify} />}
               {view === "clients" && <ClientsView records={clients} search={search} setSearch={setSearch} generatedAt={state.generatedAt} onAdd={() => setModal({ module: "clients" })} onEdit={(record) => setModal({ module: "clients", record })} onDelete={(record) => setConfirmDelete({ module: "clients", record })} />}
               {view === "accesses" && <><div className="notice"><ShieldCheck size={20} /><div><strong>Segurança primeiro.</strong><span>Nunca informe senhas aqui. Guarde somente a referência ao cofre seguro.</span></div></div><ModuleView module="accesses" records={filtered("accesses")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "accesses" })} onEdit={(record) => setModal({ module: "accesses", record })} onDelete={(record) => setConfirmDelete({ module: "accesses", record })} /></>}
               {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} />}

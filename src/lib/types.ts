@@ -19,6 +19,24 @@ export interface OrganizationsTable {
   created_at: string;
 }
 
+export interface SaasAccountsTable {
+  org_id: string;
+  slug: string;
+  logo_data_url: string;
+  plan: "Start" | "Smart" | "Pro" | "Enterprise";
+  status: "Teste" | "Ativo" | "Suspenso" | "Cancelado";
+  max_users: number;
+  renewal_date: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlatformAdminsTable {
+  user_id: string;
+  created_at: string;
+}
+
 export interface UsersTable {
   id: string;
   org_id: string;
@@ -70,6 +88,8 @@ export interface SettingsTable {
 
 export interface Database {
   organizations: OrganizationsTable;
+  saas_accounts: SaasAccountsTable;
+  platform_admins: PlatformAdminsTable;
   users: UsersTable;
   sessions: SessionsTable;
   records: RecordsTable;
@@ -84,6 +104,7 @@ export interface SessionUser {
   email: string;
   role: Role;
   mustChangePassword: boolean;
+  isSaasMaster?: boolean;
 }
 
 export interface AppRecord {

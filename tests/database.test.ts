@@ -18,6 +18,12 @@ beforeAll(async () => {
 });
 
 describe("persistência multiusuário", () => {
+  it("marca o administrador inicial como Admin SaaS Mestre", async () => {
+    const admin = await dbModule.db.selectFrom("users").select("id").where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
+    const platformAdmin = await dbModule.db.selectFrom("platform_admins").select("user_id").where("user_id", "=", admin.id).executeTakeFirst();
+    expect(platformAdmin?.user_id).toBe(admin.id);
+  });
+
   it("cria, edita e exclui registro com auditoria", async () => {
     const row = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
     const user: SessionUser = { id: row.id, orgId: row.org_id, name: row.name, email: row.email, role: "CEO_ADMIN", mustChangePassword: true };

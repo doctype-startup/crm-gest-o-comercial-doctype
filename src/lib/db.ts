@@ -83,6 +83,28 @@ async function createSchema() {
     .execute();
 
   await db.schema
+    .createTable("saas_accounts")
+    .ifNotExists()
+    .addColumn("org_id", "varchar(36)", (c) => c.primaryKey().references("organizations.id").onDelete("cascade"))
+    .addColumn("slug", "varchar(100)", (c) => c.notNull().unique())
+    .addColumn("logo_data_url", "text", (c) => c.notNull().defaultTo(""))
+    .addColumn("plan", "varchar(30)", (c) => c.notNull().defaultTo("Start"))
+    .addColumn("status", "varchar(30)", (c) => c.notNull().defaultTo("Teste"))
+    .addColumn("max_users", "integer", (c) => c.notNull().defaultTo(3))
+    .addColumn("renewal_date", "varchar(40)", (c) => c.notNull().defaultTo(""))
+    .addColumn("notes", "text", (c) => c.notNull().defaultTo(""))
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createTable("platform_admins")
+    .ifNotExists()
+    .addColumn("user_id", "varchar(36)", (c) => c.primaryKey().references("users.id").onDelete("cascade"))
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
     .createTable("sessions")
     .ifNotExists()
     .addColumn("id", "varchar(36)", (c) => c.primaryKey())
@@ -148,6 +170,21 @@ async function createSchema() {
     .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
     .addPrimaryKeyConstraint("settings_pk", ["org_id", "key"])
     .execute();
+
+  const hasPlatformAdmin = await db.selectFrom("platform_admins").select("user_id").limit(1).executeTakeFirst();
+  if (!hasPlatformAdmin) {
+    const candidate = await db
+      .selectFrom("users as u")
+      .innerJoin("organizations as o", "o.id", "u.org_id")
+      .select("u.id")
+      .where("u.role", "=", "CEO_ADMIN")
+      .where("o.name", "=", "DOCTYPE")
+      .orderBy("u.created_at")
+      .executeTakeFirst();
+    if (candidate) {
+      await db.insertInto("platform_admins").values({ user_id: candidate.id, created_at: new Date().toISOString() }).onConflict((conflict) => conflict.column("user_id").doNothing()).execute();
+    }
+  }
 
   await sql`delete from sessions where expires_at < ${new Date().toISOString()}`.execute(db);
 }

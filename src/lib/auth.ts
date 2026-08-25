@@ -43,6 +43,7 @@ export async function seedAdmin() {
       created_at: now,
       updated_at: now,
     }).execute();
+    await trx.insertInto("platform_admins").values({ user_id: userId, created_at: now }).execute();
     await trx.insertInto("settings").values({ org_id: orgId, key: "crmGoal", value: "3000", updated_at: now }).execute();
   });
 }
@@ -51,6 +52,8 @@ export async function authenticate(email: string, password: string) {
   await seedAdmin();
   const user = await db.selectFrom("users").selectAll().where("email", "=", email.toLowerCase()).executeTakeFirst();
   if (!user || !user.active || !(await verify(user.password_hash, password))) return null;
+  const account = await db.selectFrom("saas_accounts").select("status").where("org_id", "=", user.org_id).executeTakeFirst();
+  if (account?.status === "Suspenso" || account?.status === "Cancelado") return null;
 
   const rawToken = randomBytes(32).toString("base64url");
   const now = new Date();
@@ -84,10 +87,12 @@ export async function getSession(): Promise<SessionUser | null> {
   const row = await db
     .selectFrom("sessions as s")
     .innerJoin("users as u", "u.id", "s.user_id")
-    .select(["u.id", "u.org_id", "u.name", "u.email", "u.role", "u.active", "u.must_change_password", "s.expires_at"])
+    .leftJoin("platform_admins as pa", "pa.user_id", "u.id")
+    .leftJoin("saas_accounts as sa", "sa.org_id", "u.org_id")
+    .select(["u.id", "u.org_id", "u.name", "u.email", "u.role", "u.active", "u.must_change_password", "s.expires_at", "pa.user_id as platform_admin_id", "sa.status as saas_status"])
     .where("s.token_hash", "=", tokenHash(token))
     .executeTakeFirst();
-  if (!row || !row.active || row.expires_at < new Date().toISOString()) return null;
+  if (!row || !row.active || row.expires_at < new Date().toISOString() || row.saas_status === "Suspenso" || row.saas_status === "Cancelado") return null;
   return {
     id: row.id,
     orgId: row.org_id,
@@ -95,6 +100,7 @@ export async function getSession(): Promise<SessionUser | null> {
     email: row.email,
     role: row.role as Role,
     mustChangePassword: Boolean(row.must_change_password),
+    isSaasMaster: Boolean(row.platform_admin_id),
   };
 }
 
