@@ -92,7 +92,6 @@ export async function POST(request: Request) {
         pix: {
           mandate_options: {
             amount: unitAmount,
-            amount_type: "fixed",
             currency: "brl",
             payment_schedule: cycle.schedule,
             reference: `DOCTYPE ${billing.plan}`.slice(0, 80),
