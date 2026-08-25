@@ -108,7 +108,7 @@ async function createSchema() {
     .createTable("saas_billing")
     .ifNotExists()
     .addColumn("org_id", "varchar(36)", (c) => c.primaryKey().references("organizations.id").onDelete("cascade"))
-    .addColumn("monthly_price", "decimal(12,2)", (c) => c.notNull().defaultTo(0))
+    .addColumn("monthly_price", "decimal", (c) => c.notNull().defaultTo(0))
     .addColumn("billing_cycle", "varchar(20)", (c) => c.notNull().defaultTo("Mensal"))
     .addColumn("billing_day", "integer", (c) => c.notNull().defaultTo(10))
     .addColumn("billing_email", "varchar(200)", (c) => c.notNull().defaultTo(""))
