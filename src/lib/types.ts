@@ -52,6 +52,14 @@ export interface SaasBillingTable {
   updated_at: string;
 }
 
+export interface StripeEventsTable {
+  id: string;
+  org_id: string;
+  type: string;
+  event_created: number;
+  processed_at: string;
+}
+
 export interface UsersTable {
   id: string;
   org_id: string;
@@ -106,6 +114,7 @@ export interface Database {
   saas_accounts: SaasAccountsTable;
   platform_admins: PlatformAdminsTable;
   saas_billing: SaasBillingTable;
+  stripe_events: StripeEventsTable;
   users: UsersTable;
   sessions: SessionsTable;
   records: RecordsTable;

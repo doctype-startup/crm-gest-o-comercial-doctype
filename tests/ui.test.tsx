@@ -21,6 +21,7 @@ beforeEach(() => {
     if (url === "/api/state") return Response.json(initialState);
     if (url === "/api/users") return Response.json({ users: [{ id: "u1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", active: true, mustChangePassword: false }] });
     if (url === "/api/admin/organizations") return Response.json({ organizations: [] });
+    if (url === "/api/billing") return Response.json({ subscription: { organizationName: "Cliente DOCTYPE", plan: "Smart", accountStatus: "Ativo", maxUsers: 5, renewalDate: "2027-08-20", monthlyPrice: 397, billingCycle: "Mensal", billingDay: 10, billingEmail: "financeiro@cliente.local", paymentMethod: "Pix", paymentStatus: "Pendente", nextChargeDate: "2026-09-10", graceUntil: "2026-09-15", automaticBilling: false, stripeConfigured: true, testMode: true } });
     return Response.json({ ok: true, record: client });
   }) as typeof fetch;
 });
@@ -42,6 +43,15 @@ describe("jornadas visíveis do DOCTYPE OS", () => {
       expect(screen.getAllByRole("heading", { name: label }).length).toBeGreaterThan(0);
     }
   }, 15_000);
+
+  it("exibe a ativação segura do Pix Automático na assinatura da empresa", async () => {
+    const actor = userEvent.setup();
+    render(<DoctypeOS initialState={initialState} />);
+    await actor.click(screen.getByRole("button", { name: "Minha assinatura" }));
+    expect(await screen.findByRole("heading", { name: "Pix Automático" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ativar Pix Automático" })).toBeTruthy();
+    expect(screen.getByText("AMBIENTE DE TESTE")).toBeTruthy();
+  });
 
   it("cria, edita e exclui cliente pelos controles da interface", async () => {
     const actor = userEvent.setup();

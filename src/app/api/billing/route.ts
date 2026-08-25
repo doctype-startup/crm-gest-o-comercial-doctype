@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError, HttpError } from "@/lib/http";
+import { stripeIsConfigured, stripeIsTestMode } from "@/lib/stripe";
 
 export async function GET() {
   try {
@@ -30,6 +31,8 @@ export async function GET() {
         nextChargeDate: row.next_charge_date || "",
         graceUntil: row.grace_until || "",
         automaticBilling: Boolean(row.external_subscription_id),
+        stripeConfigured: stripeIsConfigured(),
+        testMode: stripeIsTestMode(),
       },
     });
   } catch (error) { return apiError(error); }

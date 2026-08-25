@@ -122,6 +122,23 @@ async function createSchema() {
     .execute();
 
   await db.schema
+    .createTable("stripe_events")
+    .ifNotExists()
+    .addColumn("id", "varchar(255)", (c) => c.primaryKey())
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull())
+    .addColumn("type", "varchar(100)", (c) => c.notNull())
+    .addColumn("event_created", "integer", (c) => c.notNull())
+    .addColumn("processed_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex("stripe_events_org_created")
+    .ifNotExists()
+    .on("stripe_events")
+    .columns(["org_id", "event_created"])
+    .execute();
+
+  await db.schema
     .createTable("sessions")
     .ifNotExists()
     .addColumn("id", "varchar(36)", (c) => c.primaryKey())
