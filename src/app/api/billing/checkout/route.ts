@@ -6,6 +6,43 @@ import { stripeCycle } from "@/lib/stripe-billing";
 
 export const runtime = "nodejs";
 
+type StripeFailure = Error & {
+  type?: string;
+  code?: string;
+  requestId?: string;
+  raw?: { code?: string; message?: string; requestId?: string; type?: string };
+};
+
+function stripeErrorResponse(error: unknown) {
+  if (!(error instanceof Error)) return null;
+  const failure = error as StripeFailure;
+  if (!failure.type?.startsWith("Stripe") && !failure.raw?.type?.startsWith("invalid_request")) return null;
+
+  const providerMessage = failure.raw?.message || failure.message;
+  const code = failure.code || failure.raw?.code || "stripe_request_failed";
+  const requestId = failure.requestId || failure.raw?.requestId || "";
+  const normalized = providerMessage.toLowerCase();
+  const userMessage = normalized.includes("not activated") || normalized.includes("payment method type provided: pix is invalid")
+    ? "O Pix ainda não está ativado na conta Stripe usada pelo CRM. Ative o Pix nas formas de pagamento do sandbox e tente novamente."
+    : normalized.includes("email")
+      ? "A Stripe recusou o e-mail financeiro cadastrado. Use um e-mail válido e tente novamente."
+      : normalized.includes("mandate") || normalized.includes("pix")
+        ? `A Stripe recusou a configuração do Pix Automático no sandbox: ${providerMessage}`
+        : "A Stripe não conseguiu criar a autorização agora. Consulte o diagnóstico registrado nos logs do CRM.";
+
+  console.error(JSON.stringify({
+    level: "error",
+    message: "Stripe checkout creation failed",
+    route: "/api/billing/checkout",
+    stripeType: failure.type || failure.raw?.type || "unknown",
+    stripeCode: code,
+    stripeRequestId: requestId,
+    providerMessage,
+  }));
+
+  return Response.json({ error: userMessage, diagnosticCode: code }, { status: 502 });
+}
+
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
@@ -81,6 +118,6 @@ export async function POST(request: Request) {
     await audit(session.orgId, session.id, "STRIPE_CHECKOUT_CREATED", "saas_billing", session.orgId, { checkoutSessionId: checkout.id, testMode: stripeIsTestMode() });
     return Response.json({ url: checkout.url });
   } catch (error) {
-    return apiError(error);
+    return stripeErrorResponse(error) || apiError(error);
   }
 }
