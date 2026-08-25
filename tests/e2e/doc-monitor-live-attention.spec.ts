@@ -25,7 +25,7 @@ async function badgeCount(page: Page) {
 test("Guardião renders the official mascot artwork in the floating button and drawer", async ({ page }) => {
   await login(page);
 
-  const fabImage = page.locator(".doc-fab-img-official img");
+  const fabImage = page.locator(".doc-mascot-button-image img");
   await expect(fabImage).toBeVisible();
   await expect(fabImage).toHaveAttribute("src", /^data:image\/webp;base64,/);
   await expect.poll(async () => fabImage.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBeTruthy();

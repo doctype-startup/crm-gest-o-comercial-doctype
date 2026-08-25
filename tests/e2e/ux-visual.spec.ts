@@ -32,7 +32,7 @@ test.describe("auditoria visual UX", () => {
     expect(navBox?.height ?? 0).toBeGreaterThanOrEqual(42);
 
     await openNav(page, testInfo, "Clientes 360°");
-    const primary = page.locator(".section-title .primary").first();
+    const primary = page.locator(".clients-hero .primary").first();
     await expect(primary).toBeVisible();
     const primaryBox = await primary.boundingBox();
     expect(primaryBox?.height ?? 0).toBeGreaterThanOrEqual(testInfo.project.name === "mobile" ? 44 : 40);

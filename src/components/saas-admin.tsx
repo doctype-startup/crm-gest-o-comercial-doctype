@@ -40,7 +40,22 @@ export function SaasAdmin({ notify }: { notify: (message: string) => void }) {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+
+    request<{ organizations: SaasOrganization[] }>("/api/admin/organizations")
+      .then(({ organizations: nextOrganizations }) => {
+        if (active) setOrganizations(nextOrganizations);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Não foi possível carregar as empresas.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, []);
   const visible = useMemo(() => organizations.filter((organization) => JSON.stringify(organization).toLowerCase().includes(search.toLowerCase())), [organizations, search]);
   const active = organizations.filter((organization) => organization.status === "Ativo").length;
   const trials = organizations.filter((organization) => organization.status === "Teste").length;

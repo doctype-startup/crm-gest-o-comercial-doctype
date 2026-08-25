@@ -52,7 +52,7 @@ test.describe("gestão comercial", () => {
     await expect(page.locator(".commercial-page")).toHaveCount(0);
     await openNav(page, testInfo, "Clientes 360°");
     await expect(page.locator(".topbar h1")).toHaveText("Clientes 360°");
-    await page.getByRole("button", { name: /Novo cliente/ }).click();
+    await page.locator(".clients-hero").getByRole("button", { name: /Novo cliente/ }).click();
     const clientDialog = page.getByRole("dialog");
     await clientDialog.getByLabel("Nome do cliente").fill("Cliente Comercial E2E");
     await clientDialog.getByLabel("Serviços contratados").fill("DOC CRM");

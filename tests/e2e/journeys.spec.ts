@@ -33,7 +33,7 @@ test("login, CRUD, persistência e todos os módulos", async ({ page }, testInfo
     await page.getByRole("button", { name: "Abrir menu" }).click();
   }
   await page.getByRole("button", { name: "Clientes 360°", exact: true }).click();
-  await page.getByRole("button", { name: /Novo cliente/ }).click();
+  await page.locator(".clients-hero").getByRole("button", { name: /Novo cliente/ }).click();
   await page.getByLabel("Nome do cliente").fill(createdName);
   await page.getByLabel("Serviços contratados").fill("Marketing e CRM");
   await page.getByLabel("Mensalidade").fill("1500");
