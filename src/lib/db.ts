@@ -105,6 +105,23 @@ async function createSchema() {
     .execute();
 
   await db.schema
+    .createTable("saas_billing")
+    .ifNotExists()
+    .addColumn("org_id", "varchar(36)", (c) => c.primaryKey().references("organizations.id").onDelete("cascade"))
+    .addColumn("monthly_price", "decimal(12,2)", (c) => c.notNull().defaultTo(0))
+    .addColumn("billing_cycle", "varchar(20)", (c) => c.notNull().defaultTo("Mensal"))
+    .addColumn("billing_day", "integer", (c) => c.notNull().defaultTo(10))
+    .addColumn("billing_email", "varchar(200)", (c) => c.notNull().defaultTo(""))
+    .addColumn("payment_method", "varchar(30)", (c) => c.notNull().defaultTo("Pix"))
+    .addColumn("payment_status", "varchar(30)", (c) => c.notNull().defaultTo("Pendente"))
+    .addColumn("next_charge_date", "varchar(40)", (c) => c.notNull().defaultTo(""))
+    .addColumn("grace_until", "varchar(40)", (c) => c.notNull().defaultTo(""))
+    .addColumn("external_customer_id", "varchar(200)", (c) => c.notNull().defaultTo(""))
+    .addColumn("external_subscription_id", "varchar(200)", (c) => c.notNull().defaultTo(""))
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
     .createTable("sessions")
     .ifNotExists()
     .addColumn("id", "varchar(36)", (c) => c.primaryKey())

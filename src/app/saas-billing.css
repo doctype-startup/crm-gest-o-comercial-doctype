@@ -1,0 +1,1 @@
+.saas-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.saas-plan .billing-em-dia{color:#18794e}.saas-plan .billing-pendente{color:#916000}.saas-plan .billing-atrasado{color:#b52e3c}.saas-plan .billing-isento{color:#315988}@media(max-width:900px){.saas-kpis{grid-template-columns:1fr 1fr}}@media(max-width:480px){.saas-kpis{grid-template-columns:1fr}}

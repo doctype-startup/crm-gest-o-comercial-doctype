@@ -16,7 +16,7 @@ async function openNav(page: Page, testInfo: TestInfo, label: string) {
   await page.getByRole("button", { name: label, exact: true }).click();
 }
 
-async function provisionOrganization(page: Page, input: { name: string; slug: string; email: string; password: string }) {
+async function provisionOrganization(page: Page, input: { name: string; slug: string; email: string; password: string; monthlyPrice: number }) {
   await page.locator(".saas-hero").getByRole("button", { name: "Nova empresa" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Nome da empresa *").fill(input.name);
@@ -27,6 +27,9 @@ async function provisionOrganization(page: Page, input: { name: string; slug: st
   await dialog.getByLabel("Nome do administrador *").fill(`Admin ${input.name}`);
   await dialog.getByLabel("E-mail do administrador *").fill(input.email);
   await dialog.getByLabel("Senha provisória *").fill(input.password);
+  await dialog.getByLabel("Valor da assinatura (R$)").fill(String(input.monthlyPrice));
+  await dialog.getByLabel("Status da cobrança").selectOption("Em dia");
+  await dialog.getByLabel("Próxima cobrança").fill("2026-09-10");
   await dialog.getByRole("button", { name: "Criar empresa e acesso" }).click();
   await expect(page.getByText("Empresa SaaS criada.")).toBeVisible();
   await expect(page.getByRole("heading", { name: input.name, exact: true })).toBeVisible();
@@ -45,8 +48,8 @@ async function api<T>(page: Page, path: string, method = "GET", body?: unknown):
 
 test("Admin SaaS provisiona empresas com dados totalmente isolados", async ({ browser, page }, testInfo) => {
   const suffix = testInfo.project.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-  const tenantA = { name: `Agência Aurora ${suffix}`, slug: `agencia-aurora-${suffix}`, email: `aurora-${suffix}@doctype.local`, password: "Aurora@2026!" };
-  const tenantB = { name: `Agência Boreal ${suffix}`, slug: `agencia-boreal-${suffix}`, email: `boreal-${suffix}@doctype.local`, password: "Boreal@2026!" };
+  const tenantA = { name: `Agência Aurora ${suffix}`, slug: `agencia-aurora-${suffix}`, email: `aurora-${suffix}@doctype.local`, password: "Aurora@2026!", monthlyPrice: 397 };
+  const tenantB = { name: `Agência Boreal ${suffix}`, slug: `agencia-boreal-${suffix}`, email: `boreal-${suffix}@doctype.local`, password: "Boreal@2026!", monthlyPrice: 697 };
   const clientA = { name: `Cliente exclusivo Aurora ${suffix}`, services: "CRM Aurora", monthly: 1200, dueDay: 10, status: "Ativo" };
   const clientB = { name: `Cliente exclusivo Boreal ${suffix}`, services: "CRM Boreal", monthly: 1800, dueDay: 15, status: "Ativo" };
 
@@ -65,6 +68,15 @@ test("Admin SaaS provisiona empresas com dados totalmente isolados", async ({ br
   try {
     await login(pageA, tenantA.email, tenantA.password);
     await login(pageB, tenantB.email, tenantB.password);
+
+    await openNav(pageA, testInfo, "Minha assinatura");
+    await openNav(pageB, testInfo, "Minha assinatura");
+    await expect(pageA.getByRole("heading", { name: tenantA.name })).toBeVisible();
+    await expect(pageA.getByText(/397,00/)).toBeVisible();
+    await expect(pageA.getByText(tenantB.name, { exact: true })).toHaveCount(0);
+    await expect(pageB.getByRole("heading", { name: tenantB.name })).toBeVisible();
+    await expect(pageB.getByText(/697,00/)).toBeVisible();
+    await expect(pageB.getByText(tenantA.name, { exact: true })).toHaveCount(0);
 
     const createdA = await api<{ record: RecordPayload }>(pageA, "/api/records", "POST", { module: "clients", data: clientA });
     const createdB = await api<{ record: RecordPayload }>(pageB, "/api/records", "POST", { module: "clients", data: clientB });

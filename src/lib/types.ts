@@ -37,6 +37,21 @@ export interface PlatformAdminsTable {
   created_at: string;
 }
 
+export interface SaasBillingTable {
+  org_id: string;
+  monthly_price: number;
+  billing_cycle: "Mensal" | "Trimestral" | "Anual";
+  billing_day: number;
+  billing_email: string;
+  payment_method: "Pix" | "Boleto" | "Cartão" | "Transferência";
+  payment_status: "Em dia" | "Pendente" | "Atrasado" | "Isento";
+  next_charge_date: string;
+  grace_until: string;
+  external_customer_id: string;
+  external_subscription_id: string;
+  updated_at: string;
+}
+
 export interface UsersTable {
   id: string;
   org_id: string;
@@ -90,6 +105,7 @@ export interface Database {
   organizations: OrganizationsTable;
   saas_accounts: SaasAccountsTable;
   platform_admins: PlatformAdminsTable;
+  saas_billing: SaasBillingTable;
   users: UsersTable;
   sessions: SessionsTable;
   records: RecordsTable;

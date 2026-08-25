@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
 import { SaasAdmin } from "@/components/saas-admin";
+import { SubscriptionView } from "@/components/subscription-view";
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
 
-type View = "dashboard" | "saas" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
+type View = "dashboard" | "saas" | "subscription" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
 type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email" | "image" | "document"; options?: string[]; required?: boolean; full?: boolean; hint?: string };
 type Config = { singular: string; title: string; fields: Field[]; columns: { key: string; label: string; format?: "money" | "badge" | "client" | "boolean" | "date" }[]; defaults: Record<string, unknown> };
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
@@ -90,7 +91,7 @@ const configs: Record<ModuleKey, Config> = {
 };
 
 const nav: { id: View; label: string; icon: typeof BarChart3; roles?: Role[]; masterOnly?: boolean }[] = [
-  { id: "dashboard", label: "Visão Geral", icon: BarChart3 }, { id: "saas", label: "Admin SaaS", icon: Crown, roles: ["CEO_ADMIN"], masterOnly: true }, { id: "clients", label: "Clientes 360°", icon: BriefcaseBusiness },
+  { id: "dashboard", label: "Visão Geral", icon: BarChart3 }, { id: "saas", label: "Admin SaaS", icon: Crown, roles: ["CEO_ADMIN"], masterOnly: true }, { id: "subscription", label: "Minha assinatura", icon: BadgeDollarSign, roles: ["CEO_ADMIN"] }, { id: "clients", label: "Clientes 360°", icon: BriefcaseBusiness },
   { id: "accesses", label: "Acessos", icon: FileKey2, roles: ["CEO_ADMIN", "OPERATIONS"] }, { id: "finance", label: "Financeiro", icon: CircleDollarSign, roles: ["CEO_ADMIN", "FINANCE"] },
   { id: "tasks", label: "Operação", icon: CheckSquare, roles: ["CEO_ADMIN", "OPERATIONS"] }, { id: "renewals", label: "Renovações", icon: RotateCcw },
   { id: "crm", label: "DOC CRM", icon: Activity }, { id: "team", label: "Equipe", icon: Users, roles: ["CEO_ADMIN", "OPERATIONS"] },
@@ -201,6 +202,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
               {user.mustChangePassword && <div className="security-banner"><KeyRound size={20} /><div><strong>Troque a senha provisória.</strong><span>Crie uma senha pessoal para proteger seu acesso.</span></div><button onClick={() => setAccountPassword(true)}>Trocar agora</button></div>}
               {view === "dashboard" && <Dashboard records={records} alerts={state.alerts} openView={openView} clientName={clientName} role={user.role} />}
               {view === "saas" && user.isSaasMaster && <SaasAdmin notify={notify} />}
+              {view === "subscription" && user.role === "CEO_ADMIN" && <SubscriptionView />}
               {view === "clients" && <ClientsView records={clients} search={search} setSearch={setSearch} generatedAt={state.generatedAt} onAdd={() => setModal({ module: "clients" })} onEdit={(record) => setModal({ module: "clients", record })} onDelete={(record) => setConfirmDelete({ module: "clients", record })} />}
               {view === "accesses" && <><div className="notice"><ShieldCheck size={20} /><div><strong>Segurança primeiro.</strong><span>Nunca informe senhas aqui. Guarde somente a referência ao cofre seguro.</span></div></div><ModuleView module="accesses" records={filtered("accesses")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "accesses" })} onEdit={(record) => setModal({ module: "accesses", record })} onDelete={(record) => setConfirmDelete({ module: "accesses", record })} /></>}
               {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} />}

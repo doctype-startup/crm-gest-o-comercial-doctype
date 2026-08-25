@@ -16,6 +16,8 @@ import "./hover-contrast-safety.css";
 import "./doc-monitor-live.css";
 import "./clients-agency.css";
 import "./saas-admin.css";
+import "./subscription.css";
+import "./saas-billing.css";
 
 export const metadata: Metadata = {
   title: "DOCTYPE OS — Gestão Interna",
