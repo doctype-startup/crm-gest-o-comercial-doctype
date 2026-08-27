@@ -41,7 +41,13 @@ function createDatabase() {
           user: decodeURIComponent(parsed.username),
           password: decodeURIComponent(parsed.password),
           database: decodeURIComponent(parsed.pathname.replace(/^\//, "") || "postgres"),
-          max: 10,
+          // Cada instância serverless abre seu próprio pool. Em ambiente com muitas
+          // instâncias concorrentes (ex.: picos de uso), um valor alto aqui estoura o
+          // limite de conexões do Postgres — mantenha baixo por instância e use um
+          // pooler de transação (PgBouncer, Supabase Pooler, Neon pooled) na frente.
+          // DATABASE_POOL_MAX permite ajustar por ambiente sem alterar código.
+          max: Number(process.env.DATABASE_POOL_MAX) || (isSupabasePooler ? 10 : 5),
+          idleTimeoutMillis: 30_000,
           ssl: sslRequired || isSupabasePooler ? { rejectUnauthorized } : undefined,
         }),
       }),
