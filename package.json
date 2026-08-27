@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
-    "@vercel/blob": "^1.1.1",
     "better-sqlite3": "^12.4.1",
     "kysely": "^0.28.8",
     "lucide-react": "^0.468.0",
