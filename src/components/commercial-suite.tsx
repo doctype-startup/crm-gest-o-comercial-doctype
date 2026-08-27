@@ -215,7 +215,7 @@ function CommercialModal({ modal, clients, products, quotes, close, saved }: { m
       await api(record ? `/api/records/${record.id}` : "/api/records", {
         method: record ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ module: modal.module, data: payloadData }),
+        body: JSON.stringify({ module: modal.module, data: payloadData, expectedUpdatedAt: record?.updatedAt }),
       });
       await saved();
     } catch (cause) {

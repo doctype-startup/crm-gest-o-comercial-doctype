@@ -1,6 +1,43 @@
 # DOC.OS — Handoff técnico e continuidade
 
-Atualizado em: 23/08/2026
+Atualizado em: 27/08/2026
+
+## Escala para 1000 usuários simultâneos (27/08/2026)
+
+Revisão fullstack identificou que `/api/state` (lido a cada 3s por usuário pelo DOC
+Monitor) buscava todos os registros da organização sem cache, com pool de Postgres
+fixo em 10 conexões, sem controle de concorrência em `updateRecord` e com contratos/
+logos guardados como base64 na mesma tabela `records` lida a cada poll. Mudanças desta
+sessão, todas aditivas e compatíveis com o comportamento anterior quando as novas
+variáveis de ambiente não são configuradas:
+
+- `src/lib/state-cache.ts` + `src/lib/state.ts`: micro-cache em memória (TTL
+  `STATE_CACHE_TTL_MS`, padrão 2s) do estado bruto por organização, invalidado
+  imediatamente em toda gravação (`invalidateState`, chamado de `records.ts`,
+  `api/settings` e `api/backup`). Nenhum usuário vê dado desatualizado após a própria
+  escrita.
+- `src/app/api/state/route.ts`: suporte a `ETag`/`If-None-Match` (304 quando nada
+  mudou). O ETag inclui o dia UTC corrente propositalmente — alertas do DOC Monitor
+  mudam só pela passagem do dia (princípio já documentado abaixo), então a virada do
+  dia sempre força recálculo, nunca fica presa num 304 do dia anterior.
+- `src/components/realtime-monitor.tsx`: `loadState` agora envia `If-None-Match` e
+  trata 304 sem tocar em `records`/`signature` (mantém o fluxo único de estado ao vivo
+  já documentado nesta seção do arquivo).
+- `src/lib/db.ts`: `max` do pool do Postgres configurável via `DATABASE_POOL_MAX`
+  (padrão 5 fora do pooler da Supabase). Ainda recomendado usar um pooler de
+  transação (PgBouncer/Supabase Pooler/Neon pooled) em produção com muitas instâncias.
+- `src/lib/records.ts`: `updateRecord` aceita `expectedUpdatedAt` opcional — se o
+  cliente enviar o `updatedAt` que tinha em tela e ele não bater mais com o do banco,
+  a API responde 409 em vez de sobrescrever silenciosamente a edição de outra pessoa.
+  `doctype-os.tsx` e `commercial-suite.tsx` já enviam esse campo.
+- `src/lib/blob-storage.ts`: quando `BLOB_READ_WRITE_TOKEN` está definido, arquivos
+  grandes (`clients.logoDataUrl`, `clients.contractFile.dataUrl`,
+  `contracts.fileDataUrl`) saem da tabela `records` e vão para o Vercel Blob — só a
+  URL fica no registro. Sem o token, nada muda.
+
+Pendente (não feito nesta sessão, ver revisão fullstack completa para detalhes):
+paginação em `/api/records` e no backup; mover filtros usados na exclusão em cascata
+e no cálculo de métricas para dentro do banco; teste de carga automatizado.
 
 ## Repositório e produção
 - Repositório oficial: `doctype-startup/crm-gest-o-comercial-doctype`

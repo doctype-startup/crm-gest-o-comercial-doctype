@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { audit, db } from "@/lib/db";
 import { assertSameOrigin, apiError, HttpError } from "@/lib/http";
 import { isModule, moduleSchemas } from "@/lib/modules";
+import { invalidateState } from "@/lib/state-cache";
 
 const backupSchema = z.object({
   version: z.literal(1),
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       }
     });
     await audit(user.orgId, user.id, "RESTORE", "backup", null, { records: parsed.length });
+    invalidateState(user.orgId);
     return Response.json({ ok: true, records: parsed.length });
   } catch (error) { return apiError(error); }
 }

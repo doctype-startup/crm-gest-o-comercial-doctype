@@ -9,7 +9,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const user = await requireSession();
     const body = await request.json();
     if (!isModule(body.module) || !canWrite(user.role, body.module)) throw new HttpError(403, "Você não pode alterar este módulo.");
-    const record = await updateRecord(user, (await params).id, body.module, body.data);
+    const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : undefined;
+    const record = await updateRecord(user, (await params).id, body.module, body.data, expectedUpdatedAt);
     if (!record) throw new HttpError(404, "Registro não encontrado.");
     return Response.json({ record });
   } catch (error) { return apiError(error); }

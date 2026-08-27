@@ -18,10 +18,15 @@ const number = (value: unknown) => Number(value || 0);
 const text = (value: unknown) => String(value ?? "");
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-async function loadState(signal?: AbortSignal): Promise<StatePayload> {
-  const response = await fetch("/api/state", { cache: "no-store", signal });
+type LoadResult = { notModified: true } | { notModified: false; payload: StatePayload; etag: string | null };
+
+async function loadState(signal: AbortSignal | undefined, etag: string | null): Promise<LoadResult> {
+  const headers: Record<string, string> = {};
+  if (etag) headers["If-None-Match"] = etag;
+  const response = await fetch("/api/state", { cache: "no-store", signal, headers });
+  if (response.status === 304) return { notModified: true };
   if (!response.ok) throw new Error("Não foi possível atualizar o monitor.");
-  return response.json();
+  return { notModified: false, payload: await response.json(), etag: response.headers.get("ETag") };
 }
 
 function recordsSignature(records: AppRecord[]) {
@@ -85,6 +90,7 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<number | null>(null);
   const signatureRef = useRef(recordsSignature(initialRecords));
+  const etagRef = useRef<string | null>(null);
   const lastUpdateRef = useRef(lastUpdate);
   const syncStateRef = useRef<SyncState>("live");
   const errorRef = useRef("");
@@ -105,7 +111,19 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
     setAndPublishSync(errorRef.current ? "retrying" : "syncing");
     const job = (async () => {
       try {
-        const payload = await loadState(controller.signal);
+        const result = await loadState(controller.signal, etagRef.current);
+        errorRef.current = "";
+        setError("");
+        if (result.notModified) {
+          // Nada mudou desde a última leitura válida: apenas confirma "AO VIVO" e
+          // atualiza o relógio, sem tocar em records/signature nem redisparar eventos.
+          lastUpdateRef.current = new Date();
+          setLastUpdate(lastUpdateRef.current);
+          setAndPublishSync("live");
+          return;
+        }
+        const payload = result.payload;
+        etagRef.current = result.etag;
         const nextSignature = recordsSignature(payload.records);
         const changed = nextSignature !== signatureRef.current;
         signatureRef.current = nextSignature;
@@ -113,8 +131,6 @@ export function RealtimeMonitor({ initialRecords }: { initialRecords: AppRecord[
         lastUpdateRef.current = nextUpdate;
         setRecords(payload.records);
         setLastUpdate(nextUpdate);
-        errorRef.current = "";
-        setError("");
         setAndPublishSync("live");
         publishMonitorState(payload);
         if (changed) window.dispatchEvent(new CustomEvent("doctype:records-changed", { detail: { source: "monitor" } }));
