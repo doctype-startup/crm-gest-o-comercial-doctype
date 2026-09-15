@@ -67,7 +67,7 @@ export function SignupForm({ plans }: { plans: readonly PlanCatalogEntry[] }) {
 
       {error && <div className="form-error" role="alert">{error}</div>}
       <button className="primary wide" aria-label="Criar minha conta DOC.OS" disabled={loading}><ArrowRight size={21} />{loading ? "Criando conta…" : "Criar minha conta"}</button>
-      <p className="signup-terms">Ao continuar, você poderá ativar a cobrança automática (Pix, Cartão ou Boleto) a qualquer momento dentro do DOC.OS.</p>
+      <p className="signup-terms">Ao continuar, você poderá ativar a cobrança automática (Pix ou Cartão) a qualquer momento dentro do DOC.OS.</p>
     </form>
   );
 }
