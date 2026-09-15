@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { audit, db } from "@/lib/db";
 import { apiError, assertSameOrigin, HttpError } from "@/lib/http";
 import { getStripe, stripeIsTestMode } from "@/lib/stripe";
-import { checkoutIdempotencyKey, stripeCycle } from "@/lib/stripe-billing";
+import { AUTOMATED_PAYMENT_METHOD_TYPES, checkoutIdempotencyKey, stripeCycle } from "@/lib/stripe-billing";
 
 export const runtime = "nodejs";
 
@@ -22,8 +22,13 @@ function stripeErrorResponse(error: unknown) {
   const code = failure.code || failure.raw?.code || "stripe_request_failed";
   const requestId = failure.requestId || failure.raw?.requestId || "";
   const normalized = providerMessage.toLowerCase();
-  const userMessage = normalized.includes("not activated") || normalized.includes("payment method type provided: pix is invalid")
-    ? "O Pix ainda não está ativado na conta Stripe usada pelo CRM. Ative o Pix nas formas de pagamento do sandbox e tente novamente."
+  const inactiveMethod = normalized.includes("payment method type provided: pix is invalid") ? "Pix"
+    : normalized.includes("payment method type provided: boleto is invalid") ? "Boleto"
+      : normalized.includes("payment method type provided: card is invalid") ? "Cartão"
+        : normalized.includes("not activated") ? "uma das formas de pagamento"
+          : null;
+  const userMessage = inactiveMethod
+    ? `${inactiveMethod === "uma das formas de pagamento" ? "Uma das formas de pagamento" : inactiveMethod} ainda não está ativada na conta Stripe usada pelo CRM. Ative-a nas formas de pagamento do sandbox e tente novamente.`
     : normalized.includes("email")
       ? "A Stripe recusou o e-mail financeiro cadastrado. Use um e-mail válido e tente novamente."
       : normalized.includes("mandate") || normalized.includes("pix")
@@ -38,6 +43,10 @@ function stripeErrorResponse(error: unknown) {
     stripeCode: code,
     stripeRequestId: requestId,
     providerMessage,
+    // Diagnóstico: confirma se STRIPE_PAYMENT_METHOD_CONFIGURATION realmente
+    // chegou no runtime (não é segredo, é só um ID de configuração — seguro
+    // logar por inteiro).
+    paymentMethodConfigurationEnv: process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION || "(não definida)",
   }));
 
   return Response.json({ error: userMessage, diagnosticCode: code }, { status: 502 });
@@ -82,19 +91,28 @@ export async function POST(request: Request) {
     }
 
     const origin = new URL(request.url).origin;
+    // A Stripe recomenda não combinar payment_method_types explícito com uma
+    // Configuração de método de pagamento nomeada do dashboard — o primeiro que
+    // for enviado é o que manda. Quando STRIPE_PAYMENT_METHOD_CONFIGURATION está
+    // definida, ela vira a fonte única da verdade (o que estiver ativo lá é o que
+    // aparece no checkout); sem ela, cai de volta na lista fixa no código.
+    const paymentMethodConfiguration = process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION;
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       client_reference_id: session.orgId,
       locale: "pt-BR",
-      payment_method_types: ["pix"],
+      ...(paymentMethodConfiguration
+        ? { payment_method_configuration: paymentMethodConfiguration }
+        : { payment_method_types: [...AUTOMATED_PAYMENT_METHOD_TYPES] }),
       payment_method_options: {
         pix: {
+          // Em mode="subscription" a Stripe só aceita "amount" e "payment_schedule"
+          // aqui — "currency" e "reference" são inferidos/gerados por ela e a API
+          // rejeita com invalid_request_error se forem enviados explicitamente.
           mandate_options: {
             amount: unitAmount,
-            currency: "brl",
             payment_schedule: cycle.schedule,
-            reference: `DOCTYPE ${billing.plan}`.slice(0, 80),
           },
         },
       },
@@ -108,6 +126,8 @@ export async function POST(request: Request) {
         },
       }],
       metadata,
+      // Em mode="subscription" a Stripe já salva automaticamente o método usado
+      // aqui (Pix, Cartão ou Boleto) como padrão para as próximas mensalidades.
       subscription_data: { metadata },
       success_url: `${origin}/os?billing=success`,
       cancel_url: `${origin}/os?billing=cancelled`,

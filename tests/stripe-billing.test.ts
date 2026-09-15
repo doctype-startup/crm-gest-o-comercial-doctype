@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { checkoutIdempotencyKey, isoDateFromUnix, stripeCycle, stripeEventStream, stripeId } from "@/lib/stripe-billing";
+import { billingMethodFromStripeType, checkoutIdempotencyKey, isoDateFromUnix, stripeCycle, stripeEventStream, stripeId } from "@/lib/stripe-billing";
 
-describe("cobrança Stripe por Pix Automático", () => {
+describe("cobrança automática via Stripe (Pix, Cartão e Boleto)", () => {
   it("traduz os ciclos comerciais para recorrência e mandato Pix", () => {
     expect(stripeCycle("Mensal")).toEqual({ interval: "month", intervalCount: 1, schedule: "monthly", multiplier: 1 });
     expect(stripeCycle("Trimestral")).toEqual({ interval: "month", intervalCount: 3, schedule: "quarterly", multiplier: 3 });
@@ -22,9 +22,18 @@ describe("cobrança Stripe por Pix Automático", () => {
     expect(stripeEventStream("customer.created")).toBeNull();
   });
 
-  it("gera uma chave idempotente por empresa, preço, ciclo e dia", () => {
+  it("gera uma chave idempotente por empresa, preço, ciclo e minuto — só o suficiente pra evitar duplo clique", () => {
     const input = { orgId: "org-1", plan: "Start", monthlyPrice: 397, billingCycle: "Mensal" as const, date: new Date("2026-08-25T10:00:00Z") };
-    expect(checkoutIdempotencyKey(input)).toBe(checkoutIdempotencyKey({ ...input, date: new Date("2026-08-25T23:59:00Z") }));
+    expect(checkoutIdempotencyKey(input)).toBe(checkoutIdempotencyKey({ ...input, date: new Date("2026-08-25T10:00:59Z") }));
+    expect(checkoutIdempotencyKey(input)).not.toBe(checkoutIdempotencyKey({ ...input, date: new Date("2026-08-25T10:01:00Z") }));
     expect(checkoutIdempotencyKey(input)).not.toBe(checkoutIdempotencyKey({ ...input, monthlyPrice: 497 }));
+  });
+
+  it("traduz o tipo de método de pagamento da Stripe para o rótulo exibido na assinatura", () => {
+    expect(billingMethodFromStripeType("pix")).toBe("Pix");
+    expect(billingMethodFromStripeType("card")).toBe("Cartão");
+    expect(billingMethodFromStripeType("boleto")).toBe("Boleto");
+    expect(billingMethodFromStripeType("sepa_debit")).toBeNull();
+    expect(billingMethodFromStripeType(undefined)).toBeNull();
   });
 });

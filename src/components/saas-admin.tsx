@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, CalendarDays, Crown, ImageIcon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
+import { slugify } from "@/lib/saas";
 
 type SaasOrganization = {
   id: string; name: string; slug: string; logoDataUrl: string; plan: "Start" | "Smart" | "Pro" | "Enterprise";
@@ -23,7 +24,6 @@ type Form = {
 const blank: Form = { name: "", slug: "", logoDataUrl: "", plan: "Start", status: "Teste", maxUsers: 3, renewalDate: "", notes: "", adminName: "", adminEmail: "", temporaryPassword: "", monthlyPrice: 0, billingCycle: "Mensal", billingDay: 10, billingEmail: "", paymentMethod: "Pix", paymentStatus: "Pendente", nextChargeDate: "", graceUntil: "" };
 const dateLabel = (value: string) => value ? new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR") : "Não definida";
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const slugify = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);

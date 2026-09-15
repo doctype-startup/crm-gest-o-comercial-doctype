@@ -44,12 +44,12 @@ describe("jornadas visíveis do DOCTYPE OS", () => {
     }
   }, 15_000);
 
-  it("exibe a ativação segura do Pix Automático na assinatura da empresa", async () => {
+  it("exibe a ativação segura da cobrança automática na assinatura da empresa", async () => {
     const actor = userEvent.setup();
     render(<DoctypeOS initialState={initialState} />);
     await actor.click(screen.getByRole("button", { name: "Minha assinatura" }));
-    expect(await screen.findByRole("heading", { name: "Pix Automático" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Ativar Pix Automático" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Cobrança automática" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ativar cobrança automática" })).toBeTruthy();
     expect(screen.getByText("AMBIENTE DE TESTE")).toBeTruthy();
   });
 

@@ -1,6 +1,6 @@
-# DOCTYPE OS — Gestão Interna
+# DOCTYPE OS — Gestão Interna e SaaS multi-empresa
 
-Versão de produção do sistema operacional interno da DOCTYPE. O projeto substitui o MVP em `localStorage` por uma aplicação multiusuário com autenticação, banco compartilhado, permissões, auditoria e persistência real.
+Sistema operacional de gestão da DOCTYPE, hoje também vendido como produto SaaS para outras agências: cada empresa cliente é uma organização com dados 100% isolados, com autenticação própria, permissões, auditoria e persistência real em PostgreSQL. A própria DOCTYPE opera como a primeira organização do sistema (Admin SaaS Mestre) e usa o mesmo produto internamente.
 
 > Deploy de produção configurado para Vercel com preset Next.js.
 
@@ -17,7 +17,14 @@ Versão de produção do sistema operacional interno da DOCTYPE. O projeto subst
 - DOC Monitor: alertas calculados a partir de exceções reais da operação.
 - Configurações: meta, usuários, permissões, senha, exportação e restauração de backup.
 
-O sistema não possui funil de leads, propostas ou follow-up comercial.
+O módulo "DOC CRM" (comercial interno de cada empresa cliente) não possui funil de leads, propostas ou follow-up — é só acompanhamento de MRR/margem dos próprios planos vendidos por aquela empresa.
+
+## Modelo SaaS multi-empresa
+
+- **Admin SaaS Mestre** (`/os`, menu "Admin SaaS", exclusivo de quem tem `isSaasMaster=true`): a DOCTYPE provisiona manualmente uma nova empresa cliente (organização, administrador, plano, preço) e acompanha MRR contratado, inadimplência e conversão de testes.
+- **Cadastro público self-service** (`/cadastro`): qualquer agência cria sua própria conta sem intervenção da DOCTYPE — escolhe um plano (Start/Smart/Pro, preços em `src/lib/plan-catalog.ts`), informa os dados da empresa e já entra logada como `CEO_ADMIN` da própria organização, em status "Teste". O plano Enterprise continua sob consulta comercial, sem self-service.
+- **Cobrança automática via Stripe** (`/os` → "Minha assinatura", `src/lib/stripe-billing.ts`): o próprio `CEO_ADMIN` de cada empresa ativa a cobrança recorrente escolhendo Pix Automático, Cartão de crédito ou Boleto na página segura da Stripe — as próximas mensalidades são cobradas automaticamente no mesmo método. Assim que a primeira cobrança é confirmada pelo webhook, a empresa sai de "Teste" para "Ativo" sozinha, sem intervenção manual. "Transferência" continua sendo só um rótulo administrativo (sem cobrança automatizada).
+- **Isolamento multi-tenant**: toda tabela de negócio é filtrada por `org_id` derivado da sessão autenticada, nunca de input do cliente. Coberto por `tests/e2e/tenant-isolation.spec.ts` (provisiona duas empresas e confirma que uma não lê, edita nem apaga dado da outra).
 
 ## Segurança e multiusuário
 
@@ -73,3 +80,14 @@ Antes de liberar acesso, confirme:
 - usuários de Operação e Financeiro criados com permissões mínimas;
 - backup inicial exportado e guardado em local seguro;
 - política interna LGPD definida para retenção e exclusão de dados.
+
+## Cobrança automática (Stripe) em produção
+
+Sem `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` configuradas, o sistema continua funcionando normalmente — só o botão "Ativar cobrança automática" em "Minha assinatura" fica desabilitado e `/api/webhooks/stripe` responde `503` sem processar nada (fail closed, nunca cobra sem querer).
+
+1. No Dashboard da Stripe, copie a chave secreta (`sk_test_...` em teste, `sk_live_...` em produção) para `STRIPE_SECRET_KEY`.
+2. Ative Pix, Cartão de crédito e Boleto nas formas de pagamento da conta Stripe (Configurações → Métodos de pagamento) — sem isso o checkout falha com uma mensagem específica dizendo qual método não está ativo.
+3. Crie um endpoint de webhook apontando para `https://<seu-domínio>/api/webhooks/stripe`, escutando pelo menos: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`, `invoice.payment_action_required`, `customer.subscription.updated`, `customer.subscription.deleted`.
+4. Copie o "Signing secret" desse endpoint para `STRIPE_WEBHOOK_SECRET`.
+
+O webhook é o único lugar que atualiza status de pagamento, método usado e que promove uma empresa de "Teste" para "Ativo" automaticamente — sem ele configurado corretamente, uma cobrança pode ser aprovada na Stripe sem nunca refletir no DOC.OS.

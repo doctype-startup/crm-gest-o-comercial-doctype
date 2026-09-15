@@ -35,3 +35,12 @@ export const createSaasAccountSchema = saasAccountSchema.merge(saasBillingSchema
 export const updateSaasAccountSchema = saasAccountSchema.merge(saasBillingSchema);
 
 export type SaasAccountInput = z.infer<typeof saasAccountSchema>;
+
+export function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
