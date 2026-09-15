@@ -1,9 +1,28 @@
 import type Stripe from "stripe";
 import { db, ensureSchema } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
-import { invoiceSubscriptionId, isoDateFromUnix, stripeEventStream, stripeId } from "@/lib/stripe-billing";
+import { billingMethodFromStripeType, invoiceSubscriptionId, isoDateFromUnix, stripeEventStream, stripeId } from "@/lib/stripe-billing";
 
 export const runtime = "nodejs";
+
+async function resolveSubscriptionPaymentMethod(subscriptionId: string) {
+  if (!subscriptionId) return null;
+  try {
+    const subscription = await getStripe().subscriptions.retrieve(subscriptionId, { expand: ["default_payment_method"] });
+    const paymentMethod = subscription.default_payment_method;
+    const type = typeof paymentMethod === "string" ? undefined : paymentMethod?.type;
+    return billingMethodFromStripeType(type);
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      message: "Failed to resolve Stripe subscription payment method",
+      route: "/api/webhooks/stripe",
+      subscriptionId,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return null;
+  }
+}
 
 async function organizationForEvent(event: Stripe.Event) {
   const object = event.data.object;
@@ -51,6 +70,10 @@ export async function POST(request: Request) {
   const stream = stripeEventStream(event.type);
   if (!stream) return Response.json({ received: true, ignored: true });
 
+  const checkoutPaymentMethod = event.type.startsWith("checkout.session.")
+    ? await resolveSubscriptionPaymentMethod(stripeId((event.data.object as Stripe.Checkout.Session).subscription))
+    : null;
+
   await db.transaction().execute(async (trx) => {
     const now = new Date().toISOString();
     const inserted = await trx.insertInto("stripe_events")
@@ -70,10 +93,13 @@ export async function POST(request: Request) {
       await trx.updateTable("saas_billing").set({
         external_customer_id: stripeId(checkout.customer),
         external_subscription_id: stripeId(checkout.subscription),
-        payment_method: "Pix",
+        ...(checkoutPaymentMethod ? { payment_method: checkoutPaymentMethod } : {}),
         payment_status: failed ? "Atrasado" : paid ? "Em dia" : "Pendente",
         updated_at: now,
       }).where("org_id", "=", orgId).execute();
+      // Fecha o loop do cadastro self-service: assim que a primeira cobrança é
+      // confirmada, a empresa sai de "Teste" para "Ativo" sem depender da DOCTYPE.
+      if (paid) await trx.updateTable("saas_accounts").set({ status: "Ativo", updated_at: now }).where("org_id", "=", orgId).where("status", "=", "Teste").execute();
     }
 
     if (isCurrent && event.type.startsWith("invoice.")) {
@@ -88,6 +114,7 @@ export async function POST(request: Request) {
           next_charge_date: isoDateFromUnix(invoice.period_end),
           updated_at: now,
         }).where("org_id", "=", orgId).execute();
+        if (succeeded) await trx.updateTable("saas_accounts").set({ status: "Ativo", updated_at: now }).where("org_id", "=", orgId).where("status", "=", "Teste").execute();
       }
     }
 

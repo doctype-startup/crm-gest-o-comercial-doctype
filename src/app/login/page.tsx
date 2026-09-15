@@ -44,6 +44,7 @@ export default async function LoginPage() {
             <p>Digite suas credenciais para continuar</p>
           </div>
           <LoginForm />
+          <p className="signup-login-link">Sua empresa ainda não tem conta? <a href="/cadastro">Criar conta</a></p>
         </div>
       </section>
 

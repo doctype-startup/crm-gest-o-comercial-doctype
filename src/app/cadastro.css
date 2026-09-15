@@ -1,0 +1,22 @@
+.signup-card { width: min(640px, 100%); padding-bottom: 34px; }
+.signup-card .login-form { gap: 16px; }
+
+.plan-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
+.plan-option { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding: 14px 13px; border-radius: 14px; border: 1px solid rgba(118, 147, 199, .38); background: rgba(10, 29, 70, .38); color: #c7d1e5; text-align: left; transition: .18s; }
+.plan-option:hover { border-color: rgba(118, 147, 199, .7); }
+.plan-option.selected { border-color: #ff6500; background: rgba(255, 101, 0, .12); box-shadow: 0 0 0 2px rgba(255, 101, 0, .28); }
+.plan-option-name { font-size: 13px; font-weight: 900; color: #fff; }
+.plan-option-price { font-size: 19px; font-weight: 900; color: #fff; }
+.plan-option-price small { font-size: 10px; font-weight: 600; color: #9aaed2; margin-left: 3px; }
+.plan-option-users { font-size: 10px; color: #9aaed2; }
+
+.signup-password-hint { margin: -8px 0 0; font-size: 10px; color: #8295ba; }
+.signup-terms { margin: 4px 0 0; font-size: 10px; line-height: 1.5; color: #8295ba; }
+.signup-enterprise, .signup-login-link { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid rgba(140, 158, 194, .18); font-size: 12px; color: #9aa9c7; text-align: center; }
+.signup-login-link { margin-top: 10px; padding-top: 0; border-top: 0; }
+.signup-enterprise a, .signup-login-link a { color: #ff6500; font-weight: 700; }
+
+@media (max-width: 620px) {
+  .signup-card { padding: 42px 24px 30px; }
+  .plan-picker { grid-template-columns: 1fr; }
+}

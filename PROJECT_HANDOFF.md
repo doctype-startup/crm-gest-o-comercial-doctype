@@ -1,6 +1,20 @@
 # DOC.OS — Handoff técnico e continuidade
 
-Atualizado em: 27/08/2026
+Atualizado em: 15/09/2026
+
+## Documentação alinhada ao código real + Cartão/Boleto + cadastro self-service (15/09/2026)
+
+Ao retomar o projeto, a documentação (`README.md`, `PROJECT_HANDOFF.md`, `PROJECT_MANIFEST.md`) descrevia o DOC.OS como **uso exclusivamente interno da DOCTYPE, sem CRM comercial/funil/follow-up** — mas o código em `main` já tinha, funcional e conectado desde as rodadas de `feat: add DOCTYPE SaaS master admin` e `feat: add SaaS plans and subscription billing` (ver histórico do Git): Admin SaaS Mestre (`saas-admin.tsx`), cobrança recorrente real via Stripe (`stripe-billing.ts`) e isolamento multi-tenant já testado (`tests/e2e/tenant-isolation.spec.ts`). Ou seja, o DOC.OS já era vendido como SaaS multi-empresa na prática, só a documentação nunca foi atualizada para refletir isso. Esta rodada:
+
+1. **Auditoria de isolamento multi-tenant do billing** (sem achados): toda rota de billing/admin usa `session.orgId` ou é gated por `isSaasMaster + CEO_ADMIN`; o webhook da Stripe resolve `org_id` só a partir dos dados assinados do próprio evento (metadata/lookup por `external_subscription_id`/`external_customer_id`), nunca de input do cliente. `tests/e2e/tenant-isolation.spec.ts` já cobre o cenário de uma empresa tentar ler/editar/apagar dado de outra (todas as tentativas retornam 404).
+2. **Cartão de crédito e Boleto somados ao Pix Automático** no checkout (`src/app/api/billing/checkout/route.ts`, `src/lib/stripe-billing.ts`): antes só `payment_method_types: ["pix"]`; agora `["pix", "card", "boleto"]` na mesma sessão de checkout Stripe (`mode=subscription"`), com `expires_after_days` para o boleto. O método de pagamento salvo em `saas_billing.payment_method` deixou de ser fixo em `"Pix"` no webhook — agora é resolvido de verdade consultando `subscription.default_payment_method` na Stripe (`billingMethodFromStripeType`). UI de "Minha assinatura" generalizada de "Pix Automático" para "Cobrança automática" (classes CSS `pix-automatico`/`pix-icon`/`pix-active` renomeadas para `billing-activation*`).
+3. **Cadastro público self-service** (`/cadastro`, `src/app/api/public/signup/route.ts`, `src/lib/plan-catalog.ts`): antes só o Admin SaaS Mestre conseguia criar uma empresa cliente nova. Agora qualquer agência cria a própria conta sem intervenção da DOCTYPE, escolhendo entre os planos Start (R$ 197/mês, 3 usuários), Smart (R$ 397/mês, 8 usuários) e Pro (R$ 697/mês, 20 usuários) — preços/limites centralizados em `plan-catalog.ts`, fáceis de ajustar num só lugar. Enterprise continua sob consulta, sem self-service. A conta nasce em status `"Teste"` e a sessão já é criada automaticamente (reaproveita `authenticate()`, sem duplicar lógica de sessão). Throttling por IP reaproveita a mesma tabela `login_rate_limits` do login (`registerRateLimitAttempt`, extraído de `registerLoginFailure`), sem tabela nova.
+4. **Fechamento do loop Teste → Ativo**: o webhook da Stripe agora promove `saas_accounts.status` de `"Teste"` para `"Ativo"` automaticamente assim que a primeira cobrança é confirmada (`checkout.session` pago ou `invoice.payment_succeeded`/`invoice.paid`) — antes esse campo nunca mudava sozinho, então uma empresa self-service pagante ficaria com o selo "Teste" para sempre até um admin mexer manualmente.
+5. **Variáveis `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` documentadas** em `.env.example` e no README (nunca estiveram documentadas antes, apesar de o código já depender delas desde a rodada de billing original).
+
+**Validado nesta rodada:** `npm run lint`, `npm run typecheck`, `npm test` (21 testes) e `npm run build` (com `ALLOW_SQLITE_IN_PRODUCTION=true`, mesmo padrão do CI) — todos verdes. Testado manualmente de ponta a ponta contra um SQLite local rodando a build de produção: cadastro público cria empresa+admin+billing e already loga (sessão funcional via `/api/billing`), e-mail duplicado rejeitado (409), senha fraca rejeitada (400, mensagens de campo), plano `Enterprise` rejeitado no self-service (400, só Start/Smart/Pro), `/api/billing/checkout` e `/api/webhooks/stripe` degradam para `503` sem Stripe configurada (fail closed).
+
+**Não testado nesta rodada (pendente, ver "Testes exigidos antes de qualquer merge em `main`" abaixo):** fluxo real contra a Stripe em modo teste (checkout de verdade com Pix/Cartão/Boleto sandbox + webhook assinado de verdade) — este ambiente não tinha `STRIPE_SECRET_KEY` de teste disponível. `npm run test:e2e` (Playwright) não foi executado nesta rodada. Antes de considerar o cadastro self-service pronto para tráfego real, também vale avaliar: (a) proteção anti-abuso além do rate-limit por IP (hoje sem captcha/verificação de e-mail), (b) se o self-service deveria exigir confirmação de e-mail antes de liberar acesso.
 
 ## Escala para 1000 usuários simultâneos (27/08/2026)
 
@@ -49,7 +63,7 @@ e no cálculo de métricas para dentro do banco; teste de carga automatizado.
 - Commit funcional de produção validado: `f1d4a781c9bee9381223263104621606f8585292`.
 
 ## Objetivo do sistema
-DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Centraliza gestão comercial, clientes, financeiro, operação, DOC CRM, equipe, renovações, configurações e monitoramento inteligente pelo DOC Monitor.
+DOC.OS é o CRM/ERP da DOCTYPE Tecnologia e Marketing, operado internamente e também vendido como produto SaaS multi-empresa para outras agências (ver "Documentação alinhada ao código real..." acima). Centraliza gestão comercial, clientes, financeiro, operação, DOC CRM, equipe, renovações, configurações e monitoramento inteligente pelo DOC Monitor — o mesmo conjunto de módulos para toda empresa cliente, isolado por organização.
 
 ## Identidade e UX obrigatórias
 - Produto: `DOC.OS`
@@ -76,6 +90,8 @@ DOC.OS é o CRM/ERP interno da DOCTYPE Tecnologia e Marketing. Centraliza gestã
 - Produtos
 - Orçamentos
 - Contratos
+- Minha assinatura (billing da própria empresa cliente)
+- Admin SaaS (exclusivo de `isSaasMaster`, provisionamento/faturamento de outras empresas)
 
 ## Persistência e arquitetura
 - Registros usam a tabela compartilhada `records`.

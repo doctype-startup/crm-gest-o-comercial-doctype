@@ -18,6 +18,7 @@ import "./clients-agency.css";
 import "./saas-admin.css";
 import "./subscription.css";
 import "./saas-billing.css";
+import "./cadastro.css";
 
 export const metadata: Metadata = {
   title: "DOCTYPE OS — Gestão Interna",

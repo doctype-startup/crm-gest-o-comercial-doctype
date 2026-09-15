@@ -21,6 +21,16 @@ export function loginThrottleIdentifiers(ip: string, email: string) {
   return [`ip:${ip}`, `account:${email.trim().toLowerCase()}`];
 }
 
+const SIGNUP_WINDOW_MAX_ATTEMPTS = 5;
+
+export function signupThrottleIdentifiers(ip: string) {
+  return [`signup-ip:${ip}`];
+}
+
+export async function registerSignupAttempt(identifiers: string[], now = new Date()) {
+  return registerRateLimitAttempt(identifiers, now, SIGNUP_WINDOW_MAX_ATTEMPTS);
+}
+
 export async function loginThrottleStatus(identifiers: string[], now = new Date()) {
   await ensureSchema();
   const hashes = identifiers.map(keyHash);
@@ -34,7 +44,12 @@ export async function loginThrottleStatus(identifiers: string[], now = new Date(
   return { blocked: retryAfterSeconds > 0, retryAfterSeconds };
 }
 
-export async function registerLoginFailure(identifiers: string[], now = new Date()) {
+/**
+ * Reaproveita a mesma tabela/janela de bloqueio do login para qualquer ação sensível
+ * limitada por IP/identificador (login falho, cadastro público, etc.). O nome genérico
+ * reflete isso; `registerLoginFailure` abaixo é só um apelido para o caso de login.
+ */
+export async function registerRateLimitAttempt(identifiers: string[], now = new Date(), maxAttempts = MAX_LOGIN_ATTEMPTS) {
   await ensureSchema();
   const nowIso = now.toISOString();
   const windowCutoff = new Date(now.getTime() - LOGIN_WINDOW_MS).toISOString();
@@ -49,13 +64,17 @@ export async function registerLoginFailure(identifiers: string[], now = new Date
       const values = {
         attempts,
         window_started_at: inCurrentWindow ? existing!.window_started_at : nowIso,
-        locked_until: attempts >= MAX_LOGIN_ATTEMPTS ? lockUntil : (existing?.locked_until || ""),
+        locked_until: attempts >= maxAttempts ? lockUntil : (existing?.locked_until || ""),
         updated_at: nowIso,
       };
       if (existing) await trx.updateTable("login_rate_limits").set(values).where("key_hash", "=", hash).execute();
       else await trx.insertInto("login_rate_limits").values({ key_hash: hash, ...values }).execute();
     }
   });
+}
+
+export async function registerLoginFailure(identifiers: string[], now = new Date()) {
+  return registerRateLimitAttempt(identifiers, now, MAX_LOGIN_ATTEMPTS);
 }
 
 export async function clearLoginFailures(identifiers: string[]) {
