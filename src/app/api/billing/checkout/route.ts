@@ -95,12 +95,12 @@ export async function POST(request: Request) {
       payment_method_types: [...AUTOMATED_PAYMENT_METHOD_TYPES],
       payment_method_options: {
         pix: {
+          // Em mode="subscription" a Stripe só aceita "amount" e "payment_schedule"
+          // aqui — "currency" e "reference" são inferidos/gerados por ela e a API
+          // rejeita com invalid_request_error se forem enviados explicitamente.
           mandate_options: {
             amount: unitAmount,
-            // A Stripe infere a moeda a partir dos line items em mode="subscription" —
-            // passar "currency" aqui é rejeitado com invalid_request_error.
             payment_schedule: cycle.schedule,
-            reference: `DOCTYPE ${billing.plan}`.slice(0, 80),
           },
         },
         boleto: { expires_after_days: 3 },
