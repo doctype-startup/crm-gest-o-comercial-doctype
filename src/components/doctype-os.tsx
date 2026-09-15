@@ -5,8 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity, AlertTriangle, ArchiveRestore, BadgeDollarSign, BarChart3, BriefcaseBusiness,
-  Building2, CalendarDays, CheckSquare, ChevronRight, CircleDollarSign, DatabaseBackup,
-  Crown, Download, FileKey2, FileText, Globe2, ImageIcon, KeyRound, LogOut, Mail, Menu, Pencil, Phone,
+  Building2, CalendarDays, CheckSquare, ChevronRight, CircleDollarSign, Copy, DatabaseBackup,
+  Crown, Download, FileKey2, FileText, Globe2, ImageIcon, KeyRound, Landmark, Link2, LogOut, Mail, Menu, Pencil, Phone,
   Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
@@ -62,7 +62,7 @@ const configs: Record<ModuleKey, Config> = {
   invoices: {
     singular: "fatura", title: "Receitas e faturas",
     fields: [{ key: "clientId", label: "Cliente", type: "client", required: true }, { key: "description", label: "Descrição", required: true }, { key: "value", label: "Valor", type: "number" }, { key: "due", label: "Vencimento", type: "date" }, { key: "paidAt", label: "Pagamento", type: "date" }, { key: "status", label: "Status", type: "select", options: ["Pendente", "Pago", "Vencido", "Cancelado"] }, { key: "recurring", label: "Receita recorrente", type: "checkbox" }],
-    columns: [{ key: "clientId", label: "Cliente", format: "client" }, { key: "description", label: "Descrição" }, { key: "value", label: "Valor", format: "money" }, { key: "due", label: "Vencimento", format: "date" }, { key: "status", label: "Status", format: "badge" }],
+    columns: [{ key: "clientId", label: "Cliente", format: "client" }, { key: "description", label: "Descrição" }, { key: "value", label: "Valor", format: "money" }, { key: "due", label: "Vencimento", format: "date" }, { key: "status", label: "Status", format: "badge" }, { key: "paymentLinkStatus", label: "Cobrança", format: "badge" }],
     defaults: { value: 0, status: "Pendente", recurring: false },
   },
   expenses: {
@@ -206,13 +206,13 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
               {view === "subscription" && user.role === "CEO_ADMIN" && <SubscriptionView />}
               {view === "clients" && <ClientsView records={clients} search={search} setSearch={setSearch} generatedAt={state.generatedAt} onAdd={() => setModal({ module: "clients" })} onEdit={(record) => setModal({ module: "clients", record })} onDelete={(record) => setConfirmDelete({ module: "clients", record })} />}
               {view === "accesses" && <><div className="notice"><ShieldCheck size={20} /><div><strong>Segurança primeiro.</strong><span>Nunca informe senhas aqui. Guarde somente a referência ao cofre seguro.</span></div></div><ModuleView module="accesses" records={filtered("accesses")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "accesses" })} onEdit={(record) => setModal({ module: "accesses", record })} onDelete={(record) => setConfirmDelete({ module: "accesses", record })} /></>}
-              {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} />}
+              {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} taxRate={number(state.settings.taxRate)} canWriteInvoices={user.role !== "OPERATIONS"} refresh={() => refresh(true)} notify={notify} />}
               {view === "tasks" && <ModuleView module="tasks" records={filtered("tasks")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "tasks" })} onEdit={(record) => setModal({ module: "tasks", record })} onDelete={(record) => setConfirmDelete({ module: "tasks", record })} />}
               {view === "renewals" && <Renewals clients={clients} generatedAt={state.generatedAt} onEdit={(record) => setModal({ module: "clients", record })} />}
               {view === "crm" && <CrmView records={filtered("crm")} search={search} setSearch={setSearch} clientName={clientName} goal={number(state.settings.crmGoal)} onAdd={() => setModal({ module: "crm" })} onEdit={(record) => setModal({ module: "crm", record })} onDelete={(record) => setConfirmDelete({ module: "crm", record })} />}
               {view === "team" && <ModuleView module="team" records={filtered("team")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "team" })} onEdit={(record) => setModal({ module: "team", record })} onDelete={(record) => setConfirmDelete({ module: "team", record })} />}
               {view === "monitor" && <Monitor alerts={state.alerts} openView={openView} />}
-              {view === "settings" && <SettingsView goal={number(state.settings.crmGoal)} onSaved={() => refresh(true)} downloadBackup={downloadBackup} importRef={importRef} restoreBackup={restoreBackup} user={user} notify={notify} />}
+              {view === "settings" && <SettingsView goal={number(state.settings.crmGoal)} taxRate={number(state.settings.taxRate)} onSaved={() => refresh(true)} downloadBackup={downloadBackup} importRef={importRef} restoreBackup={restoreBackup} user={user} notify={notify} />}
             </>
           )}
         </section>
@@ -310,9 +310,9 @@ function ModuleView({ module, records, search, setSearch, clientName, onAdd, onE
 
 function SearchBox({ value, setValue }: { value: string; setValue: (v: string) => void }) { return <label className="search-box"><Search size={18} /><input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Buscar em todos os campos…" /><span>{value && <button aria-label="Limpar busca" onClick={() => setValue("")}><X size={16} /></button>}</span></label>; }
 
-function DataTable({ config, records, clientName, onEdit, onDelete }: { config: Config; records: AppRecord[]; clientName: (id: unknown) => string; onEdit: (r: AppRecord) => void; onDelete: (r: AppRecord) => void }) {
+function DataTable({ config, records, clientName, onEdit, onDelete, rowAction }: { config: Config; records: AppRecord[]; clientName: (id: unknown) => string; onEdit: (r: AppRecord) => void; onDelete: (r: AppRecord) => void; rowAction?: (r: AppRecord) => React.ReactNode }) {
   if (!records.length) return <div className="empty-state compact"><ArchiveRestore /><h3>Nenhum registro encontrado.</h3><p>Use o botão acima para cadastrar o primeiro.</p></div>;
-  return <div className="table-wrap"><table><thead><tr>{config.columns.map((c) => <th key={c.key}>{c.label}</th>)}<th className="actions-col">Ações</th></tr></thead><tbody>{records.map((record) => <tr key={record.id}>{config.columns.map((column) => <td key={column.key}>{formatCell(record.data[column.key], column.format, clientName)}</td>)}<td className="row-actions"><button aria-label={`Editar ${config.singular}`} onClick={() => onEdit(record)}><Pencil size={16} /></button><button className="delete" aria-label={`Excluir ${config.singular}`} onClick={() => onDelete(record)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap"><table><thead><tr>{config.columns.map((c) => <th key={c.key}>{c.label}</th>)}<th className="actions-col">Ações</th></tr></thead><tbody>{records.map((record) => <tr key={record.id}>{config.columns.map((column) => <td key={column.key}>{formatCell(record.data[column.key], column.format, clientName)}</td>)}<td className="row-actions">{rowAction?.(record)}<button aria-label={`Editar ${config.singular}`} onClick={() => onEdit(record)}><Pencil size={16} /></button><button className="delete" aria-label={`Excluir ${config.singular}`} onClick={() => onDelete(record)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></div>;
 }
 
 function formatCell(value: unknown, format: Config["columns"][number]["format"], clientName: (id: unknown) => string) {
@@ -320,10 +320,99 @@ function formatCell(value: unknown, format: Config["columns"][number]["format"],
 }
 function Badge({ value }: { value: string }) { const style = /pago|ativo|saud|ok|conclu/i.test(value) ? "success" : /venc|risco|bloq|cancel|crítica/i.test(value) ? "danger" : /pend|aten|alta|aberta|andamento/i.test(value) ? "warning" : "info"; return <span className={`badge ${style}`}>{value || "—"}</span>; }
 
-function FinanceView({ invoices, expenses, search, setSearch, clientName, setModal, setConfirmDelete }: { invoices: AppRecord[]; expenses: AppRecord[]; search: string; setSearch: (v: string) => void; clientName: (id: unknown) => string; setModal: (v: { module: ModuleKey; record?: AppRecord }) => void; setConfirmDelete: (v: { module: ModuleKey; record: AppRecord }) => void }) {
+function FinanceView({ invoices, expenses, search, setSearch, clientName, setModal, setConfirmDelete, taxRate, canWriteInvoices, refresh, notify }: { invoices: AppRecord[]; expenses: AppRecord[]; search: string; setSearch: (v: string) => void; clientName: (id: unknown) => string; setModal: (v: { module: ModuleKey; record?: AppRecord }) => void; setConfirmDelete: (v: { module: ModuleKey; record: AppRecord }) => void; taxRate: number; canWriteInvoices: boolean; refresh: () => Promise<void>; notify: (m: string) => void }) {
+  const [tab, setTab] = useState<"geral" | "caixa">("geral");
   const income = invoices.filter((r) => r.data.status === "Pago").reduce((s, r) => s + number(r.data.value), 0);
   const cost = expenses.filter((r) => r.data.status === "Pago").reduce((s, r) => s + number(r.data.value), 0);
-  return <div className="stack"><div className="kpi-grid finance-kpis"><Kpi label="Recebido" value={money(income)} meta="Faturas pagas" /><Kpi label="Despesas pagas" value={money(cost)} meta="Custos realizados" /><Kpi label="Resultado" value={money(income - cost)} meta="Recebido menos despesas" danger={income - cost < 0} /></div><SearchBox value={search} setValue={setSearch} /><section><SectionTitle title="Receitas e faturas" action={<button className="primary" onClick={() => setModal({ module: "invoices" })}><Plus size={17} /> Nova fatura</button>} /><DataTable config={configs.invoices} records={invoices} clientName={clientName} onEdit={(record) => setModal({ module: "invoices", record })} onDelete={(record) => setConfirmDelete({ module: "invoices", record })} /></section><section><SectionTitle title="Despesas" action={<button className="secondary" onClick={() => setModal({ module: "expenses" })}><Plus size={17} /> Nova despesa</button>} /><DataTable config={configs.expenses} records={expenses} clientName={clientName} onEdit={(record) => setModal({ module: "expenses", record })} onDelete={(record) => setConfirmDelete({ module: "expenses", record })} /></section></div>;
+  return <div className="stack">
+    <div className="view-tabs"><button className={tab === "geral" ? "active" : ""} onClick={() => setTab("geral")}>Visão geral</button><button className={tab === "caixa" ? "active" : ""} onClick={() => setTab("caixa")}><Landmark size={14} /> Caixa Principal</button></div>
+    {tab === "caixa"
+      ? <CashFlowPanel invoices={invoices} expenses={expenses} taxRate={taxRate} />
+      : <><div className="kpi-grid finance-kpis"><Kpi label="Recebido" value={money(income)} meta="Faturas pagas" /><Kpi label="Despesas pagas" value={money(cost)} meta="Custos realizados" /><Kpi label="Resultado" value={money(income - cost)} meta="Recebido menos despesas" danger={income - cost < 0} /></div><SearchBox value={search} setValue={setSearch} /><section><SectionTitle title="Receitas e faturas" action={<button className="primary" onClick={() => setModal({ module: "invoices" })}><Plus size={17} /> Nova fatura</button>} /><DataTable config={configs.invoices} records={invoices} clientName={clientName} onEdit={(record) => setModal({ module: "invoices", record })} onDelete={(record) => setConfirmDelete({ module: "invoices", record })} rowAction={canWriteInvoices ? (record) => <PaymentLinkButton record={record} notify={notify} refresh={refresh} /> : undefined} /></section><section><SectionTitle title="Despesas" action={<button className="secondary" onClick={() => setModal({ module: "expenses" })}><Plus size={17} /> Nova despesa</button>} /><DataTable config={configs.expenses} records={expenses} clientName={clientName} onEdit={(record) => setModal({ module: "expenses", record })} onDelete={(record) => setConfirmDelete({ module: "expenses", record })} /></section></>}
+  </div>;
+}
+
+function PaymentLinkButton({ record, notify, refresh }: { record: AppRecord; notify: (m: string) => void; refresh: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const status = text(record.data.status);
+  if (status === "Pago" || status === "Cancelado") return null;
+  const existingLink = text(record.data.paymentLink);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const { url } = await api<{ url: string }>(`/api/finance/invoices/${record.id}/payment-link`, { method: "POST" });
+      await navigator.clipboard.writeText(url).catch(() => {});
+      notify("Link de cobrança gerado e copiado.");
+      await refresh();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Não foi possível gerar a cobrança.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function copy() {
+    await navigator.clipboard.writeText(existingLink).catch(() => {});
+    notify("Link de cobrança copiado.");
+  }
+
+  return existingLink
+    ? <button aria-label="Copiar link de cobrança" onClick={() => copy()}><Copy size={16} /></button>
+    : <button aria-label="Gerar cobrança" disabled={busy} onClick={() => generate()}><Link2 size={16} /></button>;
+}
+
+function buildCashFlowRows(invoices: AppRecord[], expenses: AppRecord[], taxRate: number, mode: "projetado" | "realizado") {
+  const buckets = new Map<string, { grossIn: number; out: number }>();
+  const touch = (month: string) => { if (!buckets.has(month)) buckets.set(month, { grossIn: 0, out: 0 }); return buckets.get(month)!; };
+  const monthOf = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso.slice(0, 7) : "";
+
+  for (const record of invoices) {
+    const status = text(record.data.status);
+    if (status === "Cancelado") continue;
+    if (mode === "realizado" && status !== "Pago") continue;
+    const month = monthOf(mode === "realizado" ? text(record.data.paidAt) || text(record.data.due) : text(record.data.due));
+    if (month) touch(month).grossIn += number(record.data.value);
+  }
+  for (const record of expenses) {
+    const status = text(record.data.status);
+    if (status === "Cancelado") continue;
+    if (mode === "realizado" && status !== "Pago") continue;
+    const month = monthOf(mode === "realizado" ? text(record.data.paidAt) || text(record.data.due) : text(record.data.due));
+    if (month) touch(month).out += number(record.data.value);
+  }
+
+  buckets.set(new Date().toISOString().slice(0, 7), buckets.get(new Date().toISOString().slice(0, 7)) || { grossIn: 0, out: 0 });
+
+  let cumulative = 0;
+  return [...buckets.keys()].sort().map((month) => {
+    const bucket = buckets.get(month)!;
+    const taxes = bucket.grossIn * (taxRate / 100);
+    const netIn = bucket.grossIn - taxes;
+    const balance = netIn - bucket.out;
+    cumulative += balance;
+    return { key: month, label: new Date(`${month}-01T12:00:00`).toLocaleDateString("pt-BR", { month: "short", year: "numeric" }), grossIn: bucket.grossIn, taxes, netIn, out: bucket.out, balance, cumulative };
+  });
+}
+
+function CashFlowPanel({ invoices, expenses, taxRate }: { invoices: AppRecord[]; expenses: AppRecord[]; taxRate: number }) {
+  const [mode, setMode] = useState<"projetado" | "realizado">("projetado");
+  const rows = buildCashFlowRows(invoices, expenses, taxRate, mode);
+  const totalNetIn = rows.reduce((s, r) => s + r.netIn, 0);
+  const totalTaxes = rows.reduce((s, r) => s + r.taxes, 0);
+  const closingBalance = rows.length ? rows[rows.length - 1].cumulative : 0;
+  return <div className="stack">
+    <div className="kpi-grid finance-kpis">
+      <Kpi label={mode === "projetado" ? "Saldo projetado" : "Saldo realizado"} value={money(closingBalance)} meta="Acumulado no período" danger={closingBalance < 0} />
+      <Kpi label="Entradas líquidas" value={money(totalNetIn)} meta={taxRate ? `Após ${taxRate}% de impostos` : "Impostos ainda não configurados"} />
+      <Kpi label="Impostos estimados" value={money(totalTaxes)} meta="Sobre as entradas do período" />
+    </div>
+    <section>
+      <SectionTitle title="Caixa Principal" subtitle="Entradas líquidas de impostos menos saídas, mês a mês" action={<div className="view-tabs"><button className={mode === "projetado" ? "active" : ""} onClick={() => setMode("projetado")}>Projetado</button><button className={mode === "realizado" ? "active" : ""} onClick={() => setMode("realizado")}>Realizado</button></div>} />
+      {!taxRate && <div className="notice"><Landmark size={20} /><div><strong>Taxa de impostos não configurada.</strong><span>Defina a taxa em Configurações para deduzir impostos das entradas automaticamente.</span></div></div>}
+      {rows.length ? <div className="table-wrap"><table><thead><tr><th>Mês</th><th>Entradas brutas</th><th>Impostos</th><th>Entradas líquidas</th><th>Saídas</th><th>Saldo do mês</th><th>Saldo acumulado</th></tr></thead><tbody>{rows.map((row) => <tr key={row.key}><td>{row.label}</td><td>{money(row.grossIn)}</td><td>{money(row.taxes)}</td><td>{money(row.netIn)}</td><td>{money(row.out)}</td><td className={row.balance < 0 ? "negative" : ""}>{money(row.balance)}</td><td className={row.cumulative < 0 ? "negative" : ""}>{money(row.cumulative)}</td></tr>)}</tbody></table></div> : <div className="empty-state compact"><Landmark /><h3>Sem lançamentos suficientes.</h3><p>Cadastre faturas e despesas com data de vencimento para projetar o caixa.</p></div>}
+    </section>
+  </div>;
 }
 
 function Renewals({ clients, generatedAt, onEdit }: { clients: AppRecord[]; generatedAt: string; onEdit: (r: AppRecord) => void }) {
@@ -340,8 +429,8 @@ function Monitor({ alerts, openView }: { alerts: Alert[]; openView: (v: View) =>
 
 function DocCard({ alerts, openView, large }: { alerts: Alert[]; openView: (v: View) => void; large?: boolean }) { return <section className={`doc-card ${large ? "large" : ""}`}><Image src="/assets/doc-mascote.svg" alt="DOC Monitor" width={large ? 190 : 125} height={large ? 190 : 125} /><div className="doc-copy"><span className="eyebrow">DOC MONITOR</span><h2>{alerts.length ? `${alerts.length} ponto${alerts.length === 1 ? "" : "s"} pedem atenção.` : "A operação está protegida."}</h2><p>O Guardião observa exceções para a equipe agir antes que virem problemas.</p><div className="alert-list">{alerts.length ? alerts.map((alert) => <button key={alert.id} onClick={() => openView((alert.module === "finance" ? "finance" : alert.module) as View)}><i className={alert.severity} /><span><strong>{alert.title}</strong><small>{alert.detail}</small></span><ChevronRight /></button>) : <div className="all-clear"><ShieldCheck /> Sem alertas críticos neste momento.</div>}</div></div></section>; }
 
-function SettingsView({ goal, onSaved, downloadBackup, importRef, restoreBackup, user, notify }: { goal: number; onSaved: () => void; downloadBackup: () => Promise<void>; importRef: React.RefObject<HTMLInputElement | null>; restoreBackup: (file: File) => Promise<void>; user: SessionUser; notify: (m: string) => void }) {
-  const [crmGoal, setCrmGoal] = useState(goal); const [users, setUsers] = useState<ManagedUser[]>([]); const [usersError, setUsersError] = useState(""); const [userModal, setUserModal] = useState<ManagedUser | "new" | null>(null); const [passwordModal, setPasswordModal] = useState(false);
+function SettingsView({ goal, taxRate, onSaved, downloadBackup, importRef, restoreBackup, user, notify }: { goal: number; taxRate: number; onSaved: () => void; downloadBackup: () => Promise<void>; importRef: React.RefObject<HTMLInputElement | null>; restoreBackup: (file: File) => Promise<void>; user: SessionUser; notify: (m: string) => void }) {
+  const [crmGoal, setCrmGoal] = useState(goal); const [taxRateInput, setTaxRateInput] = useState(taxRate); const [users, setUsers] = useState<ManagedUser[]>([]); const [usersError, setUsersError] = useState(""); const [userModal, setUserModal] = useState<ManagedUser | "new" | null>(null); const [passwordModal, setPasswordModal] = useState(false);
   const loadUsers = useCallback(async () => { try { setUsers((await api<{ users: ManagedUser[] }>("/api/users")).users); } catch (e) { setUsersError(e instanceof Error ? e.message : "Erro ao carregar usuários."); } }, []);
   useEffect(() => {
     let active = true;
@@ -349,7 +438,8 @@ function SettingsView({ goal, onSaved, downloadBackup, importRef, restoreBackup,
     return () => { active = false; };
   }, []);
   async function saveGoal() { await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ crmGoal }) }); notify("Meta atualizada."); onSaved(); }
-  return <div className="settings-grid"><section className="card"><SectionTitle title="Meta DOC CRM" subtitle="Objetivo gerencial de receita recorrente" /><label className="field"><span>MRR desejado</span><input type="number" min="0" value={crmGoal} onChange={(e) => setCrmGoal(Number(e.target.value))} /></label><button className="primary" onClick={() => saveGoal().catch((e) => setUsersError(e.message))}>Salvar meta</button></section><section className="card"><SectionTitle title="Backup e restauração" subtitle="Cópia completa dos dados operacionais" /><div className="button-stack"><button className="secondary" onClick={() => downloadBackup().catch((e) => setUsersError(e.message))}><Download size={17} /> Exportar backup JSON</button><button className="ghost" onClick={() => importRef.current?.click()}><ArchiveRestore size={17} /> Restaurar backup</button><input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => { const file = e.target.files?.[0]; if (file) restoreBackup(file).catch((err) => setUsersError(err.message)); e.target.value = ""; }} /></div></section><section className="card full-card"><SectionTitle title="Usuários e permissões" subtitle="Acesso separado por função" action={<button className="primary" onClick={() => setUserModal("new")}><Plus size={17} /> Novo usuário</button>} />{usersError && <div className="form-error">{usersError}</div>}<CompactTable headers={["Nome", "E-mail", "Permissão", "Status", "Ação"]} rows={users.map((managed) => [managed.name, managed.email, managed.role === "CEO_ADMIN" ? "CEO / Admin" : managed.role === "FINANCE" ? "Financeiro" : "Operação", <Badge key={`b-${managed.id}`} value={managed.active ? "Ativo" : "Inativo"} />, <button key={`e-${managed.id}`} className="table-action" onClick={() => setUserModal(managed)}><Pencil size={15} /> Editar</button>])} /></section><section className="card full-card"><SectionTitle title="Segurança da conta" subtitle={`Sessão atual: ${user.email}`} /><button className="ghost" onClick={() => setPasswordModal(true)}><KeyRound size={17} /> Alterar minha senha</button></section>{userModal && <UserModal value={userModal} close={() => setUserModal(null)} saved={async () => { setUserModal(null); notify("Usuário salvo."); await loadUsers(); }} />}{passwordModal && <PasswordModal close={() => setPasswordModal(false)} saved={() => { setPasswordModal(false); notify("Senha alterada com segurança."); }} />}</div>;
+  async function saveTaxRate() { await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ taxRate: taxRateInput }) }); notify("Taxa de impostos atualizada."); onSaved(); }
+  return <div className="settings-grid"><section className="card"><SectionTitle title="Meta DOC CRM" subtitle="Objetivo gerencial de receita recorrente" /><label className="field"><span>MRR desejado</span><input type="number" min="0" value={crmGoal} onChange={(e) => setCrmGoal(Number(e.target.value))} /></label><button className="primary" onClick={() => saveGoal().catch((e) => setUsersError(e.message))}>Salvar meta</button></section><section className="card"><SectionTitle title="Impostos" subtitle="Percentual deduzido das entradas no fluxo de caixa (Financeiro › Caixa Principal)" /><label className="field"><span>Taxa de impostos sobre receita (%)</span><input type="number" min="0" max="100" step="0.01" value={taxRateInput} onChange={(e) => setTaxRateInput(Number(e.target.value))} /></label><button className="primary" onClick={() => saveTaxRate().catch((e) => setUsersError(e.message))}>Salvar taxa</button></section><section className="card"><SectionTitle title="Backup e restauração" subtitle="Cópia completa dos dados operacionais" /><div className="button-stack"><button className="secondary" onClick={() => downloadBackup().catch((e) => setUsersError(e.message))}><Download size={17} /> Exportar backup JSON</button><button className="ghost" onClick={() => importRef.current?.click()}><ArchiveRestore size={17} /> Restaurar backup</button><input ref={importRef} hidden type="file" accept="application/json" onChange={(e) => { const file = e.target.files?.[0]; if (file) restoreBackup(file).catch((err) => setUsersError(err.message)); e.target.value = ""; }} /></div></section><section className="card full-card"><SectionTitle title="Usuários e permissões" subtitle="Acesso separado por função" action={<button className="primary" onClick={() => setUserModal("new")}><Plus size={17} /> Novo usuário</button>} />{usersError && <div className="form-error">{usersError}</div>}<CompactTable headers={["Nome", "E-mail", "Permissão", "Status", "Ação"]} rows={users.map((managed) => [managed.name, managed.email, managed.role === "CEO_ADMIN" ? "CEO / Admin" : managed.role === "FINANCE" ? "Financeiro" : "Operação", <Badge key={`b-${managed.id}`} value={managed.active ? "Ativo" : "Inativo"} />, <button key={`e-${managed.id}`} className="table-action" onClick={() => setUserModal(managed)}><Pencil size={15} /> Editar</button>])} /></section><section className="card full-card"><SectionTitle title="Segurança da conta" subtitle={`Sessão atual: ${user.email}`} /><button className="ghost" onClick={() => setPasswordModal(true)}><KeyRound size={17} /> Alterar minha senha</button></section>{userModal && <UserModal value={userModal} close={() => setUserModal(null)} saved={async () => { setUserModal(null); notify("Usuário salvo."); await loadUsers(); }} />}{passwordModal && <PasswordModal close={() => setPasswordModal(false)} saved={() => { setPasswordModal(false); notify("Senha alterada com segurança."); }} />}</div>;
 }
 
 function RecordModal({ module, record, clients, products, close, save }: { module: ModuleKey; record?: AppRecord; clients: AppRecord[]; products: AppRecord[]; close: () => void; save: (module: ModuleKey, data: Record<string, unknown>, id?: string, expectedUpdatedAt?: string) => Promise<void> }) {

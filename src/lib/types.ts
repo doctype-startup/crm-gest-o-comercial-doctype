@@ -63,7 +63,7 @@ export interface StripeEventsTable {
 
 export interface StripeEventCursorsTable {
   org_id: string;
-  stream: "checkout" | "invoice" | "subscription";
+  stream: "checkout" | "checkout-invoice" | "invoice" | "subscription";
   event_created: number;
   event_id: string;
   updated_at: string;
