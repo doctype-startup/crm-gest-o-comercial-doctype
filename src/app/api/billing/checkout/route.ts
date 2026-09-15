@@ -43,6 +43,10 @@ function stripeErrorResponse(error: unknown) {
     stripeCode: code,
     stripeRequestId: requestId,
     providerMessage,
+    // Diagnóstico: confirma se STRIPE_PAYMENT_METHOD_CONFIGURATION realmente
+    // chegou no runtime (não é segredo, é só um ID de configuração — seguro
+    // logar por inteiro).
+    paymentMethodConfigurationEnv: process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION || "(não definida)",
   }));
 
   return Response.json({ error: userMessage, diagnosticCode: code }, { status: 502 });

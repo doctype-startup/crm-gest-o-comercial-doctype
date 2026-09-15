@@ -6,8 +6,8 @@
 .plan-option:hover { border-color: rgba(118, 147, 199, .7); }
 .plan-option.selected { border-color: #ff6500; background: rgba(255, 101, 0, .12); box-shadow: 0 0 0 2px rgba(255, 101, 0, .28); }
 .plan-option-name { font-size: 13px; font-weight: 900; color: #fff; }
-.plan-option-price { font-size: 19px; font-weight: 900; color: #fff; }
-.plan-option-price small { font-size: 10px; font-weight: 600; color: #9aaed2; margin-left: 3px; }
+.plan-option-price { display: flex; align-items: baseline; gap: 3px; font-size: 19px; font-weight: 900; line-height: 1; color: #fff; }
+.plan-option-price small { font-size: 10px; font-weight: 600; line-height: 1; color: #9aaed2; }
 .plan-option-users { font-size: 10px; color: #9aaed2; }
 
 .signup-password-hint { margin: -8px 0 0; font-size: 10px; color: #8295ba; }
