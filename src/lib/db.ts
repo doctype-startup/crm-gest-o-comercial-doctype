@@ -103,6 +103,17 @@ async function createSchema() {
     .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
     .execute();
 
+  // saas_accounts já existia antes deste campo em produção — createTable().ifNotExists()
+  // não adiciona coluna a uma tabela que já existe, por isso o alterTable separado aqui.
+  // Idempotente: ignora o erro de "coluna já existe" em reexecuções (Postgres e SQLite
+  // usam mensagens diferentes para isso).
+  try {
+    await db.schema.alterTable("saas_accounts").addColumn("is_test_client", "integer", (c) => c.notNull().defaultTo(0)).execute();
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (!message.includes("duplicate column") && !message.includes("already exists")) throw error;
+  }
+
   await db.schema
     .createTable("platform_admins")
     .ifNotExists()

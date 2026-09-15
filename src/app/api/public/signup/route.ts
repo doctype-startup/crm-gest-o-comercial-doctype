@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       await trx.insertInto("organizations").values({ id: orgId, name: body.companyName, created_at: now }).execute();
       await trx.insertInto("saas_accounts").values({
         org_id: orgId, slug, logo_data_url: "", plan: plan.id, status: "Teste", max_users: plan.maxUsers,
-        renewal_date: "", notes: "Cadastro self-service.", created_at: now, updated_at: now,
+        renewal_date: "", notes: "Cadastro self-service.", is_test_client: 0, created_at: now, updated_at: now,
       }).execute();
       await trx.insertInto("users").values({
         id: adminId, org_id: orgId, name: body.adminName, email: body.adminEmail.toLowerCase(), password_hash: passwordHash,

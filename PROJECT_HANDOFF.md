@@ -2,6 +2,38 @@
 
 Atualizado em: 15/09/2026
 
+## Datas em pt-BR e cliente de teste manual (15/09/2026)
+
+Todos os campos de data editáveis do CRM (Clientes 360°, Financeiro, Operação,
+DOC CRM e a Gestão Comercial — Orçamentos/Contratos) usavam `<input type="date">`
+nativo, que segue o idioma configurado no **sistema operacional do navegador**, não o
+`lang="pt-BR"` da página — em máquinas com o navegador/SO em outro idioma isso mostrava
+o campo em `mm/dd/aaaa` mesmo com o app inteiro em português. Criado
+`src/components/date-field.tsx`: input de texto mascarado (`dd/mm/aaaa`) que converte
+para o formato ISO (`aaaa-mm-dd`) já usado para armazenar e exibir datas — garante o
+mesmo formato de preenchimento em qualquer navegador/SO. Substituído em todos os pontos
+que tinham `type="date"`: `doctype-os.tsx` (Clientes/Financeiro/Operação/DOC CRM, via
+`FieldControl`), `commercial-suite.tsx` (Orçamentos/Contratos, via `Field`) e
+`saas-admin.tsx` (Admin SaaS Mestre: renovação, próxima cobrança, prazo de
+regularização). De caminho, a tabela de Orçamentos/Contratos exibia datas em ISO cru
+sem formatar — agora usa `toLocaleDateString("pt-BR")` como o resto do app.
+
+Testado manualmente (Playwright, local, SQLite) em desktop e mobile: máscara ao digitar,
+persistência, recarregamento correto do valor ao reabrir para edição.
+
+**Admin SaaS Mestre — cliente de teste manual:** adicionado um campo booleano
+`is_test_client` em `saas_accounts` (migração idempotente via `alterTable` em
+`createSchema()`, já que a tabela existia antes — `createTable().ifNotExists()` não
+adiciona coluna a tabela já existente). Um checkbox "Cliente de teste manual" no
+formulário de empresa marca isso, independente do `status` de cobrança
+(Teste/Ativo/Suspenso/Cancelado) que já existia — serve para o time interno sinalizar
+manualmente que uma conta é de teste, sem mexer no ciclo de cobrança real. Aparece como
+badge roxo "Teste manual" no card da empresa.
+
+**Pendente (fora do escopo desta rodada):** ajuste de alinhamento na frase "Acessos dos
+clientes" pedido pelo usuário — não foi possível localizar visualmente o problema sem um
+print específico da tela; aguardando confirmação.
+
 ## Webhook em modo live com assinatura desatualizada (15/09/2026)
 
 Com o checkout de produção funcionando (Cartão/Boleto), o webhook (`POST
