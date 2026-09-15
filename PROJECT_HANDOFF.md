@@ -16,6 +16,11 @@ reciclar ou um novo deploy forçar instâncias novas. **Lição:** depois de tro
 `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, sempre forçar um novo deploy (não basta
 salvar a variável) antes de testar de novo.
 
+Na sequência, o erro mudou para `Invalid API Key provided: whsec_...` — o valor de
+`STRIPE_WEBHOOK_SECRET` tinha sido colado por engano no campo `STRIPE_SECRET_KEY`
+(dois campos parecidos, fácil de trocar ao configurar os dois ao mesmo tempo).
+Corrigido restaurando a chave `sk_live_...` correta nesse campo.
+
 ## Teste ao vivo contra a Stripe real — 4 bugs de checkout corrigidos (15/09/2026)
 
 Depois da rodada anterior (documentação + Cartão/Boleto + cadastro self-service), o usuário ativou a conta Stripe (saiu do modo restrito) e testamos "Ativar cobrança automática" de ponta a ponta pela primeira vez contra a Stripe de verdade (sandbox/test mode). Nenhum desses 4 problemas aparecia nos testes locais (SQLite, sem Stripe real) — só surgiram testando ao vivo:
