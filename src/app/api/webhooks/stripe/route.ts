@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { db, ensureSchema } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { billingMethodFromStripeType, invoiceSubscriptionId, isoDateFromUnix, stripeEventStream, stripeId } from "@/lib/stripe-billing";
+import { invalidateState } from "@/lib/state-cache";
 
 export const runtime = "nodejs";
 
@@ -67,7 +68,11 @@ export async function POST(request: Request) {
   await ensureSchema();
   const orgId = await organizationForEvent(event);
   if (!orgId) return Response.json({ received: true, ignored: true });
-  const stream = stripeEventStream(event.type);
+  const isClientInvoiceCheckout = event.type.startsWith("checkout.session.") && (event.data.object as Stripe.Checkout.Session).metadata?.kind === "client_invoice";
+  // Cobranças de fatura de cliente usam um stream de ordenação próprio: elas não têm
+  // relação com a assinatura SaaS da própria empresa (saas_billing) e não devem competir
+  // pelo mesmo cursor "checkout" — cada fatura tem seu próprio recordId em metadata.
+  const stream = isClientInvoiceCheckout ? "checkout-invoice" : stripeEventStream(event.type);
   if (!stream) return Response.json({ received: true, ignored: true });
 
   const checkoutPaymentMethod = event.type.startsWith("checkout.session.")
@@ -86,7 +91,25 @@ export async function POST(request: Request) {
     const cursor = await trx.selectFrom("stripe_event_cursors").select("event_created").where("org_id", "=", orgId).where("stream", "=", stream).executeTakeFirst();
     const isCurrent = !cursor || event.created >= cursor.event_created;
 
-    if (isCurrent && event.type.startsWith("checkout.session.")) {
+    if (isCurrent && event.type.startsWith("checkout.session.") && isClientInvoiceCheckout) {
+      const checkout = event.data.object as Stripe.Checkout.Session;
+      const recordId = checkout.metadata?.recordId || "";
+      const failed = event.type === "checkout.session.async_payment_failed";
+      const paid = event.type === "checkout.session.async_payment_succeeded" || checkout.payment_status === "paid" || checkout.payment_status === "no_payment_required";
+      const record = recordId
+        ? await trx.selectFrom("records").select(["id", "data"]).where("id", "=", recordId).where("org_id", "=", orgId).where("module", "=", "invoices").executeTakeFirst()
+        : undefined;
+      if (record) {
+        const data = JSON.parse(record.data) as Record<string, unknown>;
+        const nextData = paid
+          ? { ...data, status: "Pago", paidAt: data.paidAt || now.slice(0, 10), paymentLinkStatus: "Pago" }
+          : { ...data, paymentLinkStatus: failed ? "Falhou" : "Pendente" };
+        await trx.updateTable("records").set({ data: JSON.stringify(nextData), updated_at: now }).where("id", "=", recordId).where("org_id", "=", orgId).execute();
+        invalidateState(orgId);
+      }
+    }
+
+    if (isCurrent && event.type.startsWith("checkout.session.") && !isClientInvoiceCheckout) {
       const checkout = event.data.object as Stripe.Checkout.Session;
       const failed = event.type === "checkout.session.async_payment_failed";
       const paid = event.type === "checkout.session.async_payment_succeeded" || checkout.payment_status === "paid" || checkout.payment_status === "no_payment_required";

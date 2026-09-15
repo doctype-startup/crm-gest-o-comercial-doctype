@@ -49,7 +49,16 @@ export const moduleSchemas: Record<RecordModuleKey, z.ZodType<Record<string, unk
     secretRef: text,
     observations: text,
   }),
-  invoices: z.object({ clientId: required, description: required, value: amount, due: date, paidAt: date, status: z.enum(["Pendente", "Pago", "Vencido", "Cancelado"]).default("Pendente"), recurring: z.coerce.boolean().default(false) }),
+  invoices: z.object({
+    clientId: required, description: required, value: amount, due: date, paidAt: date,
+    status: z.enum(["Pendente", "Pago", "Vencido", "Cancelado"]).default("Pendente"),
+    recurring: z.coerce.boolean().default(false),
+    // Preenchidos pelo servidor ao gerar a cobrança (POST /api/finance/invoices/[id]/payment-link)
+    // e pelo webhook da Stripe ao confirmar o pagamento — nunca digitados no formulário.
+    paymentLink: z.union([z.literal(""), z.string().url().max(500)]).default(""),
+    paymentLinkStatus: z.enum(["", "Pendente", "Pago", "Falhou"]).default(""),
+    stripeCheckoutSessionId: text,
+  }),
   expenses: z.object({ name: required, category: text, value: amount, due: date, paidAt: date, status: z.enum(["Previsto", "Pago", "Vencido", "Cancelado"]).default("Previsto"), recurring: z.coerce.boolean().default(false) }),
   tasks: z.object({ title: required, clientId: text, responsible: text, due: date, priority: z.enum(["Baixa", "Média", "Alta", "Crítica"]).default("Média"), status: z.enum(["Aberta", "Em andamento", "Aguardando", "Concluída"]).default("Aberta"), description: text }),
   crm: z.object({ clientId: required, plan: z.enum(["Start", "Smart", "Pro", "Legado"]).default("Smart"), mrr: amount, setup: amount, platformCost: amount, channelCost: amount, status: z.enum(["Ativo", "Pausado", "Cancelado"]).default("Ativo"), observations: text }),

@@ -34,7 +34,7 @@ export async function getAppState(user: SessionUser, ifNoneMatch?: string) {
     return { notModified: true as const, etag };
   }
 
-  const alerts = buildAlerts(records);
+  const alerts = buildAlerts(records, new Date(), Number(raw.settings.taxRate) || 0);
   return {
     notModified: false as const,
     etag,
