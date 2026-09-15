@@ -34,6 +34,33 @@ agora confirma que o `external_customer_id` salvo ainda existe na conta atual
 checkout inteiro quebrar. Isso protege contra qualquer troca futura de chave/conta,
 cliente deletado manualmente no dashboard, etc., não só o caso desta rodada.
 
+**Pix pausado em produção:** com o customer órfão resolvido, o próximo erro foi
+`payment method type provided: pix is invalid`. Diferente do Boleto no sandbox (que
+estava "Enabled" mas com capacidade pausada por pendência cadastral), o Pix **nem
+aparece** na lista de métodos de pagamento da conta Stripe de produção (só Cards, Apple
+Pay, Google Pay, Link e Boleto estão listados, todos habilitados) — é uma limitação de
+elegibilidade da conta para esse método específico, não algo resolvível por configuração
+ou código. Endereço da conta confirmado como Brasil (Curitiba/PR), então a causa provável
+é uma aprovação/capacidade específica do Pix ainda pendente com a Stripe — segue como
+pendência para o usuário resolver diretamente com o suporte da Stripe.
+
+Para não travar o teste do cliente enquanto isso não é resolvido, `pix` foi removido de
+`AUTOMATED_PAYMENT_METHOD_TYPES` (mesmo padrão usado para pausar o Boleto antes) — o
+checkout de produção agora oferece **Cartão + Boleto** (ambos confirmados habilitados na
+conta). Basta devolver `"pix"` à lista assim que a Stripe confirmar a ativação, sem
+mexer em mais nada. Cópia visual (`subscription-view.tsx`, `signup-form.tsx`) e o ícone
+da seção de cobrança automática (trocado de `QrCode` para `Wallet`) atualizados para não
+mencionar mais Pix como opção disponível.
+
+**Alerta de possível mistura de contas Stripe:** ao investigar a ausência do Pix, o
+Account ID da conta consultada (`acct_1U89n6QcGptRE0X3`) parece corresponder ao prefixo
+de uma chave publicável (`pk_live_51U89n6...`) diferente da chave secreta configurada na
+Vercel (`sk_live_51H8a...`) — mesmo padrão de troca de conta que já apareceu várias vezes
+nesta rodada (sandbox errado, chave test vs. live). Não foi confirmado se são a mesma
+conta ou contas diferentes; antes de abrir qualquer chamado com o suporte da Stripe sobre
+o Pix, **confirmar primeiro que a verificação foi feita na conta certa** (a mesma de onde
+saiu a chave `sk_live_51H8a...` usada pelo CRM).
+
 ## Teste ao vivo contra a Stripe real — 4 bugs de checkout corrigidos (15/09/2026)
 
 Depois da rodada anterior (documentação + Cartão/Boleto + cadastro self-service), o usuário ativou a conta Stripe (saiu do modo restrito) e testamos "Ativar cobrança automática" de ponta a ponta pela primeira vez contra a Stripe de verdade (sandbox/test mode). Nenhum desses 4 problemas aparecia nos testes locais (SQLite, sem Stripe real) — só surgiram testando ao vivo:

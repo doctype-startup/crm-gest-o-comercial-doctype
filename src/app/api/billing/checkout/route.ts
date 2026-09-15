@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       .executeTakeFirst();
 
     if (!billing) throw new HttpError(404, "Assinatura não encontrada.");
-    if (billing.external_subscription_id) throw new HttpError(409, "O Pix Automático já está ativo para esta empresa.");
+    if (billing.external_subscription_id) throw new HttpError(409, "A cobrança automática já está ativa para esta empresa.");
     if (Number(billing.monthly_price) <= 0) throw new HttpError(400, "A DOCTYPE precisa definir o valor da assinatura antes da ativação.");
 
     let stripe;
@@ -123,15 +123,7 @@ export async function POST(request: Request) {
         ? { payment_method_configuration: paymentMethodConfiguration }
         : { payment_method_types: [...AUTOMATED_PAYMENT_METHOD_TYPES] }),
       payment_method_options: {
-        pix: {
-          // Em mode="subscription" a Stripe só aceita "amount" e "payment_schedule"
-          // aqui — "currency" e "reference" são inferidos/gerados por ela e a API
-          // rejeita com invalid_request_error se forem enviados explicitamente.
-          mandate_options: {
-            amount: unitAmount,
-            payment_schedule: cycle.schedule,
-          },
-        },
+        boleto: { expires_after_days: 3 },
       },
       line_items: [{
         quantity: 1,
@@ -144,7 +136,7 @@ export async function POST(request: Request) {
       }],
       metadata,
       // Em mode="subscription" a Stripe já salva automaticamente o método usado
-      // aqui (Pix, Cartão ou Boleto) como padrão para as próximas mensalidades.
+      // aqui (Cartão ou Boleto) como padrão para as próximas mensalidades.
       subscription_data: { metadata },
       success_url: `${origin}/os?billing=success`,
       cancel_url: `${origin}/os?billing=cancelled`,
