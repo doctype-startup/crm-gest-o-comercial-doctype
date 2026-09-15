@@ -24,6 +24,7 @@ export const saasAccountSchema = z.object({
   maxUsers: z.coerce.number().int().min(1).max(500),
   renewalDate,
   notes: z.string().trim().max(2000).default(""),
+  isTestClient: z.coerce.boolean().default(false),
 });
 
 export const createSaasAccountSchema = saasAccountSchema.merge(saasBillingSchema).extend({

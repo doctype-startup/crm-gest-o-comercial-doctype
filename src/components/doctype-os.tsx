@@ -10,6 +10,7 @@ import {
   Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
+import { DateField } from "@/components/date-field";
 import { SaasAdmin } from "@/components/saas-admin";
 import { SubscriptionView } from "@/components/subscription-view";
 import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
@@ -361,6 +362,7 @@ function RecordModal({ module, record, clients, products, close, save }: { modul
 function FieldControl({ field, value, clients, products, setValue }: { field: Field; value: unknown; clients: AppRecord[]; products: AppRecord[]; setValue: (v: unknown) => void }) {
   if (field.type === "image") return <ImageUploadField field={field} value={value} setValue={setValue} />;
   if (field.type === "document") return <DocumentUploadField field={field} value={value} setValue={setValue} />;
+  if (field.type === "date") return <DateField label={field.label} value={text(value)} onChange={setValue} required={field.required} full={field.full} hint={field.hint} />;
   if (field.type === "checkbox") return <label className={`field checkbox ${field.full ? "full" : ""}`}><input type="checkbox" checked={Boolean(value)} onChange={(e) => setValue(e.target.checked)} /><span>{field.label}</span></label>;
   if (field.type === "products") {
     const selected = stringArray(value);

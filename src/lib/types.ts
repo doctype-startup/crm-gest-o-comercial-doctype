@@ -28,6 +28,7 @@ export interface SaasAccountsTable {
   max_users: number;
   renewal_date: string;
   notes: string;
+  is_test_client: number;
   created_at: string;
   updated_at: string;
 }
