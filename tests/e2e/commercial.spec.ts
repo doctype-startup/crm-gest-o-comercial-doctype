@@ -82,7 +82,7 @@ test.describe("gestão comercial", () => {
     await modal.getByLabel("Título do contrato *").fill("Contrato DOC CRM E2E");
     await modal.getByRole("button", { name: /DOC CRM E2E/ }).click();
     await modal.getByLabel("Valor do contrato").fill("1400");
-    await modal.getByLabel("Data da assinatura").fill("2026-08-21");
+    await modal.getByLabel("Data da assinatura").fill("21/08/2026");
     await modal.getByLabel("Status").selectOption("Assinado");
     await modal.getByRole("button", { name: "Salvar", exact: true }).click();
     await expectCommercialTableValue(page, "R$ 1.400,00");

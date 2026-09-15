@@ -41,7 +41,7 @@ test.describe("auditoria visual UX", () => {
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Nome do cliente").fill("Cliente UX E2E");
     await dialog.getByLabel("Serviços contratados").fill("Auditoria visual");
-    await dialog.getByLabel("Renovação").fill("2026-09-30");
+    await dialog.getByLabel("Renovação").fill("30/09/2026");
     await dialog.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(page.getByText("Cliente UX E2E", { exact: true })).toBeVisible();
 

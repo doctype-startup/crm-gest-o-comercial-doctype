@@ -29,7 +29,7 @@ async function provisionOrganization(page: Page, input: { name: string; slug: st
   await dialog.getByLabel("Senha provisória *").fill(input.password);
   await dialog.getByLabel("Valor da assinatura (R$)").fill(String(input.monthlyPrice));
   await dialog.getByLabel("Status da cobrança").selectOption("Em dia");
-  await dialog.getByLabel("Próxima cobrança").fill("2026-09-10");
+  await dialog.getByLabel("Próxima cobrança").fill("10/09/2026");
   await dialog.getByRole("button", { name: "Criar empresa e acesso" }).click();
   await expect(page.getByText("Empresa SaaS criada.")).toBeVisible();
   await expect(page.getByRole("heading", { name: input.name, exact: true })).toBeVisible();
