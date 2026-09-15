@@ -49,7 +49,7 @@ test("attention count, DOC card and responsive Guardião bubble share the live m
   await page.getByRole("button", { name: /Nova tarefa/ }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Tarefa").fill(`Alerta ao vivo ${testInfo.project.name}`);
-  await dialog.getByLabel("Prazo").fill("2026-08-20");
+  await dialog.getByLabel("Prazo").fill("20/08/2026");
   await dialog.getByLabel("Prioridade").selectOption("Crítica");
   await dialog.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText("Registro criado.")).toBeVisible();
