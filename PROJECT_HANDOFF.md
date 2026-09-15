@@ -23,6 +23,8 @@ Depois da rodada anterior (documentação + Cartão/Boleto + cadastro self-servi
 
 **Lição pro futuro:** ao depurar contra Stripe sandbox, sempre confirmar que a `STRIPE_SECRET_KEY` do ambiente testado pertence à mesma sandbox sendo configurada na dashboard — o prefixo após `sk_test_51` identifica a conta. Duas sandboxes "parecidas" (mesmo nome de negócio, mesmo modo de teste) podem ser contas totalmente distintas.
 
+**Erro extra no meio da correção:** na primeira tentativa de atualizar `STRIPE_SECRET_KEY` na Vercel, o valor salvo acabou sendo literalmente o texto `"STRIPE_SECRET_KEY"` (o nome da variável, não o valor) — a Stripe recusou com `StripeAuthenticationError: Invalid API Key provided: STRIPE_S*****_KEY`, um erro bem diagnosticável pelo próprio formato da mensagem. Corrigido colando o valor correto isoladamente.
+
 ## Documentação alinhada ao código real + Cartão/Boleto + cadastro self-service (15/09/2026)
 
 Ao retomar o projeto, a documentação (`README.md`, `PROJECT_HANDOFF.md`, `PROJECT_MANIFEST.md`) descrevia o DOC.OS como **uso exclusivamente interno da DOCTYPE, sem CRM comercial/funil/follow-up** — mas o código em `main` já tinha, funcional e conectado desde as rodadas de `feat: add DOCTYPE SaaS master admin` e `feat: add SaaS plans and subscription billing` (ver histórico do Git): Admin SaaS Mestre (`saas-admin.tsx`), cobrança recorrente real via Stripe (`stripe-billing.ts`) e isolamento multi-tenant já testado (`tests/e2e/tenant-isolation.spec.ts`). Ou seja, o DOC.OS já era vendido como SaaS multi-empresa na prática, só a documentação nunca foi atualizada para refletir isso. Esta rodada:
