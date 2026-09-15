@@ -2,6 +2,20 @@
 
 Atualizado em: 15/09/2026
 
+## Ida para produção (Pix + Cartão) e cliente de cache do Stripe (15/09/2026)
+
+Depois de validar Pix/Cartão no sandbox, a PR #17 foi mesclada em `main` com o Boleto
+pausado (`AUTOMATED_PAYMENT_METHOD_TYPES` sem "boleto", volta a incluir quando resolvido)
+para liberar cobrança real a um cliente. Na primeira tentativa em produção, o checkout
+seguia recusando com `Invalid API Key provided: sk_test_...` mesmo com a
+`STRIPE_SECRET_KEY` de Production já corrigida para a chave `sk_live_...` no painel da
+Vercel — porque `src/lib/stripe.ts` guarda o cliente Stripe num singleton por instância
+da function (`client ??= new Stripe(key, ...)`), então instâncias "quentes" que já
+tinham inicializado o cliente com a chave antiga continuam usando-a até a instância
+reciclar ou um novo deploy forçar instâncias novas. **Lição:** depois de trocar
+`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, sempre forçar um novo deploy (não basta
+salvar a variável) antes de testar de novo.
+
 ## Teste ao vivo contra a Stripe real — 4 bugs de checkout corrigidos (15/09/2026)
 
 Depois da rodada anterior (documentação + Cartão/Boleto + cadastro self-service), o usuário ativou a conta Stripe (saiu do modo restrito) e testamos "Ativar cobrança automática" de ponta a ponta pela primeira vez contra a Stripe de verdade (sandbox/test mode). Nenhum desses 4 problemas aparecia nos testes locais (SQLite, sem Stripe real) — só surgiram testando ao vivo:
