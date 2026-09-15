@@ -87,12 +87,20 @@ export async function POST(request: Request) {
     }
 
     const origin = new URL(request.url).origin;
+    // A Stripe recomenda não combinar payment_method_types explícito com uma
+    // Configuração de método de pagamento nomeada do dashboard — o primeiro que
+    // for enviado é o que manda. Quando STRIPE_PAYMENT_METHOD_CONFIGURATION está
+    // definida, ela vira a fonte única da verdade (o que estiver ativo lá é o que
+    // aparece no checkout); sem ela, cai de volta na lista fixa no código.
+    const paymentMethodConfiguration = process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION;
     const checkout = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       client_reference_id: session.orgId,
       locale: "pt-BR",
-      payment_method_types: [...AUTOMATED_PAYMENT_METHOD_TYPES],
+      ...(paymentMethodConfiguration
+        ? { payment_method_configuration: paymentMethodConfiguration }
+        : { payment_method_types: [...AUTOMATED_PAYMENT_METHOD_TYPES] }),
       payment_method_options: {
         pix: {
           // Em mode="subscription" a Stripe só aceita "amount" e "payment_schedule"
