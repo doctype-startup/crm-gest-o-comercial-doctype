@@ -22,9 +22,10 @@ describe("cobrança automática via Stripe (Pix, Cartão e Boleto)", () => {
     expect(stripeEventStream("customer.created")).toBeNull();
   });
 
-  it("gera uma chave idempotente por empresa, preço, ciclo e dia", () => {
+  it("gera uma chave idempotente por empresa, preço, ciclo e minuto — só o suficiente pra evitar duplo clique", () => {
     const input = { orgId: "org-1", plan: "Start", monthlyPrice: 397, billingCycle: "Mensal" as const, date: new Date("2026-08-25T10:00:00Z") };
-    expect(checkoutIdempotencyKey(input)).toBe(checkoutIdempotencyKey({ ...input, date: new Date("2026-08-25T23:59:00Z") }));
+    expect(checkoutIdempotencyKey(input)).toBe(checkoutIdempotencyKey({ ...input, date: new Date("2026-08-25T10:00:59Z") }));
+    expect(checkoutIdempotencyKey(input)).not.toBe(checkoutIdempotencyKey({ ...input, date: new Date("2026-08-25T10:01:00Z") }));
     expect(checkoutIdempotencyKey(input)).not.toBe(checkoutIdempotencyKey({ ...input, monthlyPrice: 497 }));
   });
 

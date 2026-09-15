@@ -28,9 +28,17 @@ export function stripeEventStream(type: string) {
   return null;
 }
 
+/**
+ * Só evita duplicar a sessão de checkout em cliques repetidos/retries de rede muito
+ * próximos — por isso o bucket é de 1 minuto, não o dia inteiro. Um bucket largo
+ * (ex.: o dia todo) faz a MESMA chave ser reenviada com um corpo de requisição
+ * diferente sempre que o código muda (ex.: um fix de bug) ou numa nova tentativa
+ * horas depois, e a Stripe rejeita isso com StripeIdempotencyError — travando
+ * qualquer tentativa de ativar cobrança pro resto do dia.
+ */
 export function checkoutIdempotencyKey(input: { orgId: string; plan: string; monthlyPrice: number; billingCycle: BillingCycle; date?: Date }) {
-  const day = (input.date || new Date()).toISOString().slice(0, 10);
-  const fingerprint = `${input.orgId}|${input.plan}|${input.monthlyPrice.toFixed(2)}|${input.billingCycle}|${day}`;
+  const minuteBucket = (input.date || new Date()).toISOString().slice(0, 16);
+  const fingerprint = `${input.orgId}|${input.plan}|${input.monthlyPrice.toFixed(2)}|${input.billingCycle}|${minuteBucket}`;
   return `doctype-billing-${createHash("sha256").update(fingerprint).digest("hex")}`;
 }
 
