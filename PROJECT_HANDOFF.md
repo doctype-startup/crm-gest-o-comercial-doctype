@@ -21,6 +21,19 @@ Na sequência, o erro mudou para `Invalid API Key provided: whsec_...` — o val
 (dois campos parecidos, fácil de trocar ao configurar os dois ao mesmo tempo).
 Corrigido restaurando a chave `sk_live_...` correta nesse campo.
 
+**Causa raiz final, bug real de robustez no código:** com a chave `sk_live_` correta
+finalmente no ar, o erro virou `No such customer: 'cus_...'`. Cada vez que uma chave
+Stripe diferente esteve ativa durante essa sequência de correções (test → live →
+webhook secret por engano → live certa), qualquer tentativa de checkout que chegasse a
+criar um Cliente Stripe gravava esse ID em `saas_billing.external_customer_id` — só que
+esse Cliente só existe na conta/chave que estava ativa no momento da criação. Ao trocar
+de chave, o ID salvo vira uma referência órfã. `src/app/api/billing/checkout/route.ts`
+agora confirma que o `external_customer_id` salvo ainda existe na conta atual
+(`stripe.customers.retrieve`) antes de reaproveitá-lo — se a Stripe responder
+`resource_missing`, cria um Cliente novo e atualiza o registro, em vez de deixar o
+checkout inteiro quebrar. Isso protege contra qualquer troca futura de chave/conta,
+cliente deletado manualmente no dashboard, etc., não só o caso desta rodada.
+
 ## Teste ao vivo contra a Stripe real — 4 bugs de checkout corrigidos (15/09/2026)
 
 Depois da rodada anterior (documentação + Cartão/Boleto + cadastro self-service), o usuário ativou a conta Stripe (saiu do modo restrito) e testamos "Ativar cobrança automática" de ponta a ponta pela primeira vez contra a Stripe de verdade (sandbox/test mode). Nenhum desses 4 problemas aparecia nos testes locais (SQLite, sem Stripe real) — só surgiram testando ao vivo:

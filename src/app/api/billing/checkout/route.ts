@@ -80,6 +80,20 @@ export async function POST(request: Request) {
     const metadata = { orgId: session.orgId, doctypePlan: billing.plan };
     let customerId = billing.external_customer_id;
 
+    // Um external_customer_id salvo pode ter sido criado sob uma chave/conta Stripe
+    // diferente da atual (troca de test para live, rotação de chave, etc.) — nesse
+    // caso a Stripe responde "No such customer" e o checkout inteiro quebra. Confirma
+    // que o cliente ainda existe na conta atual antes de reaproveitá-lo.
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch (error) {
+        const failure = error as StripeFailure;
+        if (failure.code !== "resource_missing" && failure.raw?.code !== "resource_missing") throw error;
+        customerId = "";
+      }
+    }
+
     if (!customerId) {
       const customer = await stripe.customers.create({
         name: billing.name,
