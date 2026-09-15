@@ -22,17 +22,20 @@ function stripeErrorResponse(error: unknown) {
   const code = failure.code || failure.raw?.code || "stripe_request_failed";
   const requestId = failure.requestId || failure.raw?.requestId || "";
   const normalized = providerMessage.toLowerCase();
+  // A mensagem não pode dizer "sandbox" incondicionalmente — em produção (chave
+  // sk_live_...) isso confunde quem está depurando um problema real de conta live.
+  const environmentLabel = stripeIsTestMode() ? "sandbox" : "conta Stripe de produção";
   const inactiveMethod = normalized.includes("payment method type provided: pix is invalid") ? "Pix"
     : normalized.includes("payment method type provided: boleto is invalid") ? "Boleto"
       : normalized.includes("payment method type provided: card is invalid") ? "Cartão"
         : normalized.includes("not activated") ? "uma das formas de pagamento"
           : null;
   const userMessage = inactiveMethod
-    ? `${inactiveMethod === "uma das formas de pagamento" ? "Uma das formas de pagamento" : inactiveMethod} ainda não está ativada na conta Stripe usada pelo CRM. Ative-a nas formas de pagamento do sandbox e tente novamente.`
+    ? `${inactiveMethod === "uma das formas de pagamento" ? "Uma das formas de pagamento" : inactiveMethod} ainda não está ativada na ${environmentLabel} usada pelo CRM. Ative-a nas formas de pagamento e tente novamente.`
     : normalized.includes("email")
       ? "A Stripe recusou o e-mail financeiro cadastrado. Use um e-mail válido e tente novamente."
       : normalized.includes("mandate") || normalized.includes("pix")
-        ? `A Stripe recusou a configuração do Pix Automático no sandbox: ${providerMessage}`
+        ? `A Stripe recusou a configuração do Pix Automático na ${environmentLabel}: ${providerMessage}`
         : "A Stripe não conseguiu criar a autorização agora. Consulte o diagnóstico registrado nos logs do CRM.";
 
   console.error(JSON.stringify({
