@@ -2,6 +2,18 @@
 
 Atualizado em: 15/09/2026
 
+## Webhook em modo live com assinatura desatualizada (15/09/2026)
+
+Com o checkout de produção funcionando (Cartão/Boleto), o webhook (`POST
+/api/webhooks/stripe`) passou a responder `400` para todo evento — a Stripe já tinha um
+endpoint live ativo ("dynamic-voyage", 100% de taxa de erro), mas o `STRIPE_WEBHOOK_SECRET`
+salvo na Vercel não batia com o signing secret real desse endpoint (provavelmente ficou
+com o valor de uma rodada anterior de configuração, sandbox ou não). Corrigido colando o
+signing secret certo desse endpoint. Como não é possível confirmar sem testar se a Vercel
+propaga env vars pra instâncias já quentes sem um novo deploy (mesmo problema documentado
+antes para `STRIPE_SECRET_KEY`), forçando um redeploy por precaução — commit também serve
+pra isso.
+
 ## Ida para produção (Pix + Cartão) e cliente de cache do Stripe (15/09/2026)
 
 Depois de validar Pix/Cartão no sandbox, a PR #17 foi mesclada em `main` com o Boleto
