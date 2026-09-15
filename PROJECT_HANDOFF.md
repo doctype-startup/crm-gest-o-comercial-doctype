@@ -2,6 +2,19 @@
 
 Atualizado em: 15/09/2026
 
+## Teste ao vivo contra a Stripe real — 4 bugs de checkout corrigidos (15/09/2026)
+
+Depois da rodada anterior (documentação + Cartão/Boleto + cadastro self-service), o usuário ativou a conta Stripe (saiu do modo restrito) e testamos "Ativar cobrança automática" de ponta a ponta pela primeira vez contra a Stripe de verdade (sandbox/test mode). Nenhum desses 4 problemas aparecia nos testes locais (SQLite, sem Stripe real) — só surgiram testando ao vivo:
+
+1. **`payment_method_options[pix][mandate_options][currency]` inválido em `mode="subscription"`** — a Stripe infere a moeda dos line items; passar `currency` explicitamente é rejeitado. Bug pré-existente na implementação original só-Pix, nunca pego antes.
+2. **Chave idempotente presa por 1 dia inteiro** — `checkoutIdempotencyKey` era determinística por dia (org+plano+preço+ciclo+dia). A tentativa que falhou com o bug do `currency` "gravou" essa chave na Stripe; a tentativa seguinte, já corrigida, colidia com ela (`StripeIdempotencyError`, parâmetros diferentes da primeira vez). Reduzido o bucket de determinismo para 1 minuto — só o suficiente pra evitar duplo-clique/retry de rede, sem travar o dia inteiro após qualquer falha.
+3. **`payment_method_options[pix][mandate_options][reference]` também inválido em `mode="subscription"`** — mesmo motivo do `currency`: só `amount` e `payment_schedule` são aceitos ali, confirmado na documentação da Stripe.
+4. **Boleto "Enabled" na tela geral de Payment Methods, mas API seguia recusando** ("payment method type provided: boleto is invalid"). Causa: o código especifica `payment_method_types` manualmente, e isso faz a Stripe validar contra a ativação "crua" da conta — não contra uma **Payment Method Configuration nomeada** do dashboard (Settings → Billing → Invoice settings → "Métodos de pagamento padrão", ID `pmc_...`), que é onde o Boleto dessa conta estava de fato ativado para faturas/assinaturas. A Stripe recomenda não misturar os dois. Adicionada `STRIPE_PAYMENT_METHOD_CONFIGURATION` (opcional): quando definida, o checkout usa essa configuração nomeada como fonte única da verdade de quais métodos oferecer, em vez da lista fixa no código.
+
+**Lição pro futuro:** qualquer coisa envolvendo `payment_method_options` de métodos assíncronos (Pix, Boleto) em `mode="subscription"` precisa ser validada contra a Stripe real antes de dar como pronta — os testes locais e o SDK TypeScript não pegam essas restrições (os campos existem no tipo, só são rejeitados em runtime pela API).
+
+**Ainda em aberto ao encerrar esta rodada:** confirmar que a `STRIPE_PAYMENT_METHOD_CONFIGURATION` com Pix/Cartão/Boleto todos ativos resolve o Boleto sem regredir o Pix (que não aparecia listado nessa configuração nomeada, mas funcionava via `payment_method_types` explícito). Também notamos, mais de uma vez, redeploys acidentais de **produção** (branch `main`, código antigo) ao tentar redeployar o preview do PR pela UI da Vercel — terminamos preferindo forçar um novo Preview via commit no branch em vez de depender do botão "Redeploy" da Vercel.
+
 ## Documentação alinhada ao código real + Cartão/Boleto + cadastro self-service (15/09/2026)
 
 Ao retomar o projeto, a documentação (`README.md`, `PROJECT_HANDOFF.md`, `PROJECT_MANIFEST.md`) descrevia o DOC.OS como **uso exclusivamente interno da DOCTYPE, sem CRM comercial/funil/follow-up** — mas o código em `main` já tinha, funcional e conectado desde as rodadas de `feat: add DOCTYPE SaaS master admin` e `feat: add SaaS plans and subscription billing` (ver histórico do Git): Admin SaaS Mestre (`saas-admin.tsx`), cobrança recorrente real via Stripe (`stripe-billing.ts`) e isolamento multi-tenant já testado (`tests/e2e/tenant-isolation.spec.ts`). Ou seja, o DOC.OS já era vendido como SaaS multi-empresa na prática, só a documentação nunca foi atualizada para refletir isso. Esta rodada:
