@@ -114,8 +114,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 @media(max-width:700px){
   body{font-size:15px!important}
+  .topbar{height:auto!important;flex-wrap:wrap!important;row-gap:10px!important;padding:14px 15px!important}
+  .topbar>div:not(.top-actions){flex:1 1 auto!important;min-width:0!important;order:1!important}
   .topbar h1{font-size:22px!important}
   .topbar p{font-size:12.5px!important}
+  .top-actions{order:2!important;flex:1 1 100%!important;margin-left:0!important;justify-content:flex-end!important}
   .section-title{flex-direction:column!important;align-items:stretch!important}
   .section-title>.primary,.section-title>.secondary,.section-title>.ghost{width:100%!important;min-height:44px!important}
   .primary,.secondary,.ghost,.danger-button,.table-action,.commercial-actions button,.commercial-modal-actions button{min-height:44px!important;font-size:13.5px!important}
