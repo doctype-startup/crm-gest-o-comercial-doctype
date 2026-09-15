@@ -97,7 +97,8 @@ export async function POST(request: Request) {
         pix: {
           mandate_options: {
             amount: unitAmount,
-            currency: "brl",
+            // A Stripe infere a moeda a partir dos line items em mode="subscription" —
+            // passar "currency" aqui é rejeitado com invalid_request_error.
             payment_schedule: cycle.schedule,
             reference: `DOCTYPE ${billing.plan}`.slice(0, 80),
           },
