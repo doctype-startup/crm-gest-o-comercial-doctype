@@ -115,7 +115,6 @@ export async function POST(request: Request) {
             payment_schedule: cycle.schedule,
           },
         },
-        boleto: { expires_after_days: 3 },
       },
       line_items: [{
         quantity: 1,

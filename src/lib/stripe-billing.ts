@@ -44,8 +44,13 @@ export function checkoutIdempotencyKey(input: { orgId: string; plan: string; mon
 
 export type BillingMethodLabel = "Pix" | "Cartão" | "Boleto";
 
-/** Métodos automatizados pela Stripe hoje. "Transferência" permanece manual/administrativa. */
-export const AUTOMATED_PAYMENT_METHOD_TYPES = ["pix", "card", "boleto"] as const;
+/**
+ * Métodos oferecidos no checkout hoje. "Transferência" permanece manual/administrativa.
+ * Boleto está pausado temporariamente (fora da lista) enquanto sua ativação na conta
+ * Stripe usada em produção não é confirmada — volte a incluir "boleto" aqui assim que
+ * estiver validado em modo live, sem precisar mexer em mais nada.
+ */
+export const AUTOMATED_PAYMENT_METHOD_TYPES = ["pix", "card"] as const;
 
 export function billingMethodFromStripeType(type: string | null | undefined): BillingMethodLabel | null {
   if (type === "pix") return "Pix";
