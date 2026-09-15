@@ -46,11 +46,12 @@ export type BillingMethodLabel = "Pix" | "Cartão" | "Boleto";
 
 /**
  * Métodos oferecidos no checkout hoje. "Transferência" permanece manual/administrativa.
- * Boleto está pausado temporariamente (fora da lista) enquanto sua ativação na conta
- * Stripe usada em produção não é confirmada — volte a incluir "boleto" aqui assim que
- * estiver validado em modo live, sem precisar mexer em mais nada.
+ * Pix está pausado temporariamente (fora da lista): na conta Stripe de produção ele nem
+ * aparece na lista de métodos disponíveis (Cartão e Boleto aparecem, habilitados) — volte
+ * a incluir "pix" aqui assim que a Stripe confirmar a ativação na conta, sem precisar
+ * mexer em mais nada.
  */
-export const AUTOMATED_PAYMENT_METHOD_TYPES = ["pix", "card"] as const;
+export const AUTOMATED_PAYMENT_METHOD_TYPES = ["card", "boleto"] as const;
 
 export function billingMethodFromStripeType(type: string | null | undefined): BillingMethodLabel | null {
   if (type === "pix") return "Pix";
