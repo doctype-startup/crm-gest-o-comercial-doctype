@@ -25,12 +25,17 @@ async function sendNotificationEmail(recipient: Recipient, title: string, body: 
   if (!process.env.RESEND_API_KEY) return;
   try {
     const { getResend, notificationsFromAddress } = await import("./resend");
-    await getResend().emails.send({
+    const result = await getResend().emails.send({
       from: notificationsFromAddress(),
       to: recipient.email,
       subject: title,
       html: `<p>Olá, ${recipient.name}.</p><p>${body}</p><p style="color:#8a93a2;font-size:12px">DOCTYPE OS — notificação automática.</p>`,
     });
+    // O SDK da Resend não lança exceção para erros da API (domínio não verificado,
+    // destinatário fora do modo sandbox etc.) — ele resolve normalmente com
+    // { data: null, error }. Sem checar isso explicitamente, esses erros nunca
+    // apareciam em log nenhum.
+    if (result.error) throw new Error(`${result.error.name}: ${result.error.message}`);
   } catch (error) {
     console.error(JSON.stringify({ level: "error", message: "Falha ao enviar e-mail de notificação", recipient: recipient.email, error: error instanceof Error ? error.message : String(error) }));
   }
