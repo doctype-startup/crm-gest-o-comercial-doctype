@@ -14,6 +14,7 @@ let recordsModule: typeof import("@/lib/records");
 let authModule: typeof import("@/lib/auth");
 let accountSecurityModule: typeof import("@/lib/account-security");
 let userManagementModule: typeof import("@/lib/user-management");
+let notificationsModule: typeof import("@/lib/notifications");
 
 beforeAll(async () => {
   dbModule = await import("@/lib/db");
@@ -21,6 +22,7 @@ beforeAll(async () => {
   authModule = await import("@/lib/auth");
   accountSecurityModule = await import("@/lib/account-security");
   userManagementModule = await import("@/lib/user-management");
+  notificationsModule = await import("@/lib/notifications");
   await authModule.seedAdmin();
 });
 
@@ -77,6 +79,26 @@ describe("persistência multiusuário", () => {
     await expect(
       userManagementModule.updateManagedUser(session, financeUserId, { name: "Financeiro Teste", role: "FINANCE", active: true, permissions: { team: { read: false, write: true } } }),
     ).rejects.toThrow("visualização");
+  });
+
+  it("notifica (central + tentativa de e-mail) só quem tem acesso ao módulo, e persiste como não lida", async () => {
+    const admin = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
+
+    const operationsUserId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await dbModule.db.insertInto("users").values({ id: operationsUserId, org_id: admin.org_id, name: "Operação Teste", email: `operacao-${operationsUserId}@doctype.local`, password_hash: await authModule.hashPassword("Operacao@Teste2026"), role: "OPERATIONS", active: 1, must_change_password: 1, created_at: now, updated_at: now }).execute();
+
+    // Sem exceção: Operação não lê invoices por padrão, então não deve ser notificada.
+    const recipientsBefore = await notificationsModule.usersWithModuleAccess(admin.org_id, "invoices");
+    expect(recipientsBefore.some((r) => r.id === operationsUserId)).toBe(false);
+    expect(recipientsBefore.some((r) => r.id === admin.id)).toBe(true);
+
+    await notificationsModule.notifyUsers(admin.org_id, recipientsBefore, { title: "Pagamento recebido", body: "Cliente Teste pagou R$ 100,00.", link: "finance" });
+    const rows = await dbModule.db.selectFrom("notifications").selectAll().where("org_id", "=", admin.org_id).where("title", "=", "Pagamento recebido").execute();
+    expect(rows).toHaveLength(recipientsBefore.length);
+    expect(rows.every((row) => row.read === 0)).toBe(true);
+    expect(rows.some((row) => row.user_id === admin.id)).toBe(true);
+    expect(rows.some((row) => row.user_id === operationsUserId)).toBe(false);
   });
 
   it("revoga sessões anteriores ao rotacionar credenciais", async () => {

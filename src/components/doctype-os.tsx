@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Activity, AlertTriangle, ArchiveRestore, BadgeDollarSign, BarChart3, BriefcaseBusiness,
+  Activity, AlertTriangle, ArchiveRestore, BadgeDollarSign, BarChart3, Bell, BriefcaseBusiness,
   Building2, CalendarDays, CheckSquare, ChevronRight, CircleDollarSign, Copy, DatabaseBackup,
   Crown, Download, Eye, EyeOff, FileKey2, FileText, Globe2, ImageIcon, KeyRound, Landmark, Link2, LogOut, Mail, Menu, Pencil, Phone,
   Plus, RefreshCw, RotateCcw, Search, Settings, ShieldCheck, Trash2, Upload, Users, X,
@@ -123,6 +123,87 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+type NotificationItem = { id: string; title: string; body: string; link: string; read: boolean; createdAt: string };
+
+function NotificationBell({ openView }: { openView: (view: View) => void }) {
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const load = useCallback(async () => {
+    try {
+      const payload = await api<{ notifications: NotificationItem[]; unreadCount: number }>("/api/notifications");
+      setItems(payload.notifications);
+      setUnreadCount(payload.unreadCount);
+      setLoaded(true);
+    } catch {
+      // Sino é um extra — uma falha aqui não pode travar o resto da navegação.
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api<{ notifications: NotificationItem[]; unreadCount: number }>("/api/notifications")
+      .then((payload) => { if (active) { setItems(payload.notifications); setUnreadCount(payload.unreadCount); setLoaded(true); } })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  async function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next) await load();
+  }
+
+  async function openNotification(item: NotificationItem) {
+    if (!item.read) {
+      await api(`/api/notifications/${item.id}`, { method: "PUT" }).catch(() => {});
+      setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
+      setUnreadCount((count) => Math.max(0, count - 1));
+    }
+    setOpen(false);
+    if (item.link) openView(item.link as View);
+  }
+
+  async function markAllRead() {
+    await api("/api/notifications/read-all", { method: "POST" }).catch(() => {});
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  }
+
+  return (
+    <div className="notification-bell">
+      <button className="ghost icon-button" aria-label="Notificações" onClick={() => void toggle()}>
+        <Bell size={17} />
+        {unreadCount > 0 && <b className="notification-badge">{unreadCount > 9 ? "9+" : unreadCount}</b>}
+      </button>
+      {open && (
+        <div className="notification-panel">
+          <div className="notification-panel-head">
+            <span>Notificações</span>
+            {unreadCount > 0 && <button type="button" onClick={() => void markAllRead()}>Marcar todas como lidas</button>}
+          </div>
+          {!loaded ? (
+            <p className="notification-empty">Carregando…</p>
+          ) : items.length === 0 ? (
+            <p className="notification-empty">Nenhuma notificação ainda.</p>
+          ) : (
+            <div className="notification-list">
+              {items.map((item) => (
+                <button type="button" key={item.id} className={item.read ? "notification-item" : "notification-item unread"} onClick={() => void openNotification(item)}>
+                  <strong>{item.title}</strong>
+                  <span>{item.body}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
   const router = useRouter();
   const [view, setView] = useState<View>("dashboard");
@@ -200,7 +281,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
       </aside>
       {menuOpen && <button className="sidebar-overlay" aria-label="Fechar menu" onClick={() => setMenuOpen(false)} />}
       <main className="workspace">
-        <header className="topbar"><button className="menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}><Menu /></button><div><h1>{titles[view]}</h1><p>Marketing • CRM • Inteligência Artificial</p></div><div className="top-actions"><button className="ghost icon-button" aria-label="Atualizar dados" onClick={() => refresh()}><RefreshCw size={17} /></button>{user.role === "CEO_ADMIN" && <button className="ghost backup-top" onClick={() => downloadBackup().catch((e) => setError(e.message))}><DatabaseBackup size={17} /> Backup</button>}{user.role !== "FINANCE" && view !== "saas" && <button className="primary new-top" onClick={() => setModal({ module: "clients" })}><Plus size={17} /> Cliente</button>}</div></header>
+        <header className="topbar"><button className="menu-button" aria-label="Abrir menu" onClick={() => setMenuOpen(true)}><Menu /></button><div><h1>{titles[view]}</h1><p>Marketing • CRM • Inteligência Artificial</p></div><div className="top-actions"><NotificationBell openView={openView} /><button className="ghost icon-button" aria-label="Atualizar dados" onClick={() => refresh()}><RefreshCw size={17} /></button>{user.role === "CEO_ADMIN" && <button className="ghost backup-top" onClick={() => downloadBackup().catch((e) => setError(e.message))}><DatabaseBackup size={17} /> Backup</button>}{user.role !== "FINANCE" && view !== "saas" && <button className="primary new-top" onClick={() => setModal({ module: "clients" })}><Plus size={17} /> Cliente</button>}</div></header>
         <section className="content">
           {loading ? <LoadingState /> : error ? <ErrorState error={error} retry={() => refresh()} /> : (
             <>
