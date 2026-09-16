@@ -10,7 +10,7 @@ test("envia notificação de teste pelo botão em Configurações", async ({ pag
   await page.getByRole("button", { name: "Configurações", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Configurações" })).toBeVisible();
   await page.getByRole("button", { name: "Enviar notificação de teste" }).click();
-  await expect(page.getByText("Notificação de teste enviada")).toBeVisible();
+  await expect(page.getByText(/Notificação (de teste enviada|criada no sino)/)).toBeVisible();
   await page.screenshot({ path: `test-results/qa-test-notification-${testInfo.project.name}.png`, fullPage: true });
   await page.locator(".notification-bell").click();
   await expect(page.locator(".notification-item").first()).toContainText("Notificação de teste");

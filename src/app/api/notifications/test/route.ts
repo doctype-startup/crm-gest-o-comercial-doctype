@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { apiError, assertSameOrigin, HttpError } from "@/lib/http";
 import { notifyUsers } from "@/lib/notifications";
+import { resendIsConfigured } from "@/lib/resend";
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +12,6 @@ export async function POST(request: Request) {
       title: "Notificação de teste",
       body: "Se você recebeu isto na central e por e-mail, a integração está funcionando.",
     });
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, emailAttempted: resendIsConfigured() });
   } catch (error) { return apiError(error); }
 }
