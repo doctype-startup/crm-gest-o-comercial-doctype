@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RecordModuleKey, Role } from "./types";
+import type { ModulePermissions, RecordModuleKey, Role } from "./types";
 
 const text = z.string().trim().max(1000).default("");
 const longText = z.string().max(4_500_000).default("");
@@ -83,3 +83,35 @@ const writeByRole: Record<Role, RecordModuleKey[]> = {
 export function canRead(role: Role, module: RecordModuleKey) { return readByRole[role].includes(module); }
 export function canWrite(role: Role, module: RecordModuleKey) { return writeByRole[role].includes(module); }
 export function isModule(value: string): value is RecordModuleKey { return value in moduleSchemas; }
+
+export const ALL_MODULE_KEYS = Object.keys(moduleSchemas) as RecordModuleKey[];
+
+export const MODULE_LABELS: Record<RecordModuleKey, string> = {
+  clients: "Clientes 360°",
+  accesses: "Acessos dos clientes",
+  invoices: "Receitas e faturas",
+  expenses: "Despesas",
+  tasks: "Operação",
+  crm: "DOC CRM",
+  team: "Equipe",
+  products: "Produtos",
+  quotes: "Orçamentos",
+  contracts: "Contratos",
+};
+
+type ModuleOverrideRow = { module: RecordModuleKey; can_read: number | boolean; can_write: number | boolean };
+
+/**
+ * Parte do padrão do papel (readByRole/writeByRole) e aplica, por cima, as
+ * exceções gravadas para este usuário em `user_module_permissions` — a linha
+ * manda mesmo que o papel mude depois. Sem linha para um módulo, vale o padrão.
+ */
+export function resolveModulePermissions(role: Role, overrides: ModuleOverrideRow[]): ModulePermissions {
+  const read = new Set(readByRole[role]);
+  const write = new Set(writeByRole[role]);
+  for (const override of overrides) {
+    if (override.can_read) read.add(override.module); else read.delete(override.module);
+    if (override.can_write) write.add(override.module); else write.delete(override.module);
+  }
+  return { read: [...read], write: [...write] };
+}

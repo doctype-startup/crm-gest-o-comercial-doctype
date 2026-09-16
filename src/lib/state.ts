@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { db } from "./db";
-import { canRead } from "./modules";
 import { buildAlerts } from "./monitor";
 import { listRecords } from "./records";
 import { getRawState, setRawState } from "./state-cache";
@@ -20,15 +19,16 @@ async function loadRawState(orgId: string) {
 
 export async function getAppState(user: SessionUser, ifNoneMatch?: string) {
   const raw = await loadRawState(user.orgId);
-  const records = raw.records.filter((record) => canRead(user.role, record.module));
+  const records = raw.records.filter((record) => user.modulePermissions.read.includes(record.module));
   const signature = records.map((record) => `${record.id}:${record.updatedAt}`).sort().join("|");
   // Alertas (buildAlerts / monitor-engine) mudam com a simples passagem do dia (D-7,
   // vencido, etc.) mesmo sem nenhum registro ser alterado — ver PROJECT_HANDOFF.md,
   // princípio 16. O dia UTC corrente entra no ETag exatamente para isso: garante que a
   // virada do dia sempre produz um ETag novo (200 com alerts recalculados), nunca um
-  // 304 preso no snapshot do dia anterior.
+  // 304 preso no snapshot do dia anterior. user.id entra porque dois usuários do
+  // mesmo papel podem ter permissões por módulo diferentes (ver user_module_permissions).
   const today = new Date().toISOString().slice(0, 10);
-  const etag = `"${createHash("sha1").update(`${user.role}|${today}|${signature}|${JSON.stringify(raw.settings)}`).digest("hex")}"`;
+  const etag = `"${createHash("sha1").update(`${user.id}|${today}|${signature}|${JSON.stringify(raw.settings)}`).digest("hex")}"`;
 
   if (ifNoneMatch && ifNoneMatch === etag) {
     return { notModified: true as const, etag };

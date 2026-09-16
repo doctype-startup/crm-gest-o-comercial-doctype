@@ -4,13 +4,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DoctypeOS } from "@/components/doctype-os";
+import { resolveModulePermissions } from "@/lib/modules";
 import type { AppRecord, SessionUser } from "@/lib/types";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
 vi.mock("next/image", () => ({ default: (props: React.ImgHTMLAttributes<HTMLImageElement> & { priority?: boolean }) => { const { priority, ...imageProps } = props; void priority; return React.createElement("img", imageProps); } }));
 
-const user: SessionUser = { id: "u1", orgId: "o1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", mustChangePassword: false };
+const user: SessionUser = { id: "u1", orgId: "o1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", mustChangePassword: false, modulePermissions: resolveModulePermissions("CEO_ADMIN", []) };
 const client: AppRecord = { id: "c1", module: "clients", data: { name: "Cliente Existente", services: "Marketing", monthly: 1200, renewal: "2026-09-20", health: "Saudável", status: "Ativo" }, createdAt: "2026-08-20T00:00:00Z", updatedAt: "2026-08-20T00:00:00Z" };
 const initialState = { records: [client], alerts: [], settings: { crmGoal: 3000 }, user, generatedAt: "2026-08-20T12:00:00Z" };
 
@@ -19,7 +20,7 @@ beforeEach(() => {
   global.fetch = vi.fn(async (input) => {
     const url = String(input);
     if (url === "/api/state") return Response.json(initialState);
-    if (url === "/api/users") return Response.json({ users: [{ id: "u1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", active: true, mustChangePassword: false }] });
+    if (url === "/api/users") return Response.json({ users: [{ id: "u1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", active: true, mustChangePassword: false, permissions: resolveModulePermissions("CEO_ADMIN", []) }] });
     if (url === "/api/admin/organizations") return Response.json({ organizations: [] });
     if (url === "/api/billing") return Response.json({ subscription: { organizationName: "Cliente DOCTYPE", plan: "Smart", accountStatus: "Ativo", maxUsers: 5, renewalDate: "2027-08-20", monthlyPrice: 397, billingCycle: "Mensal", billingDay: 10, billingEmail: "financeiro@cliente.local", paymentMethod: "Pix", paymentStatus: "Pendente", nextChargeDate: "2026-09-10", graceUntil: "2026-09-15", automaticBilling: false, stripeConfigured: true, testMode: true } });
     return Response.json({ ok: true, record: client });

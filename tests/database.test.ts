@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { resolveModulePermissions } from "@/lib/modules";
 import type { SessionUser } from "@/lib/types";
+
+const adminPermissions = resolveModulePermissions("CEO_ADMIN", []);
 
 process.env.DATABASE_URL = `sqlite:/tmp/doctype-os-vitest-${process.pid}.db`;
 process.env.DATABASE_ENGINE = "sqlite";
@@ -30,7 +33,7 @@ describe("persistência multiusuário", () => {
 
   it("cria, edita e exclui registro com auditoria", async () => {
     const row = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
-    const user: SessionUser = { id: row.id, orgId: row.org_id, name: row.name, email: row.email, role: "CEO_ADMIN", mustChangePassword: true };
+    const user: SessionUser = { id: row.id, orgId: row.org_id, name: row.name, email: row.email, role: "CEO_ADMIN", mustChangePassword: true, modulePermissions: adminPermissions };
     const created = await recordsModule.createRecord(user, "clients", { name: "Cliente Teste", services: "CRM", monthly: 1500, dueDay: 10, status: "Ativo" });
     expect((await recordsModule.listRecords(user.orgId, "clients"))[0].data.name).toBe("Cliente Teste");
     const updated = await recordsModule.updateRecord(user, created.id, "clients", { ...created.data, name: "Cliente Atualizado" });
@@ -43,17 +46,37 @@ describe("persistência multiusuário", () => {
 
   it("isola dados entre organizações", async () => {
     const admin = await dbModule.db.selectFrom("users").selectAll().executeTakeFirstOrThrow();
-    const user: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false };
+    const user: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false, modulePermissions: adminPermissions };
     await recordsModule.createRecord(user, "tasks", { title: "Tarefa protegida", status: "Aberta", priority: "Média" });
     expect(await recordsModule.listRecords("outra-organizacao", "tasks")).toHaveLength(0);
   });
 
   it("impede que o administrador remova a própria permissão", async () => {
     const admin = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
-    const session: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false };
+    const session: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false, modulePermissions: adminPermissions };
     await expect(userManagementModule.updateManagedUser(session, admin.id, { name: admin.name, role: "FINANCE", active: true })).rejects.toThrow("própria permissão");
     const unchanged = await dbModule.db.selectFrom("users").select("role").where("id", "=", admin.id).executeTakeFirstOrThrow();
     expect(unchanged.role).toBe("CEO_ADMIN");
+  });
+
+  it("grava e resolve exceções de permissão por módulo salvas por usuário", async () => {
+    const admin = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
+    const session: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false, modulePermissions: adminPermissions };
+
+    const financeUserId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await dbModule.db.insertInto("users").values({ id: financeUserId, org_id: admin.org_id, name: "Financeiro Teste", email: `financeiro-${financeUserId}@doctype.local`, password_hash: await authModule.hashPassword("Financeiro@Teste2026"), role: "FINANCE", active: 1, must_change_password: 1, created_at: now, updated_at: now }).execute();
+
+    await userManagementModule.updateManagedUser(session, financeUserId, { name: "Financeiro Teste", role: "FINANCE", active: true, permissions: { accesses: { read: true, write: false } } });
+    const rows = await dbModule.db.selectFrom("user_module_permissions").select(["module", "can_read", "can_write"]).where("user_id", "=", financeUserId).execute();
+    const modulesModule = await import("@/lib/modules");
+    const effective = modulesModule.resolveModulePermissions("FINANCE", rows);
+    expect(effective.read).toContain("accesses");
+    expect(effective.write).not.toContain("accesses");
+
+    await expect(
+      userManagementModule.updateManagedUser(session, financeUserId, { name: "Financeiro Teste", role: "FINANCE", active: true, permissions: { team: { read: false, write: true } } }),
+    ).rejects.toThrow("visualização");
   });
 
   it("revoga sessões anteriores ao rotacionar credenciais", async () => {

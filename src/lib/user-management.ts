@@ -2,6 +2,7 @@ import { sql } from "kysely";
 import { hashPassword, revokeUserSessions, rotateUserSessions } from "./auth";
 import { db, ensureSchema } from "./db";
 import { HttpError } from "./http";
+import { saveUserModulePermissions, type PermissionsInput } from "./user-permissions";
 import type { Role, SessionUser } from "./types";
 
 export type ManagedUserUpdate = {
@@ -9,6 +10,7 @@ export type ManagedUserUpdate = {
   role: Role;
   active: boolean;
   password?: string;
+  permissions?: PermissionsInput;
 };
 
 export async function updateManagedUser(session: SessionUser, id: string, input: ManagedUserUpdate) {
@@ -63,6 +65,7 @@ export async function updateManagedUser(session: SessionUser, id: string, input:
     }
 
     await trx.updateTable("users").set(values).where("id", "=", id).where("org_id", "=", session.orgId).execute();
+    await saveUserModulePermissions(trx, session.orgId, id, input.permissions);
 
     if (passwordHash && id === session.id) {
       return { session: await rotateUserSessions(id, trx) };

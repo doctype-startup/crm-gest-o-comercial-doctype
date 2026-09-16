@@ -5,7 +5,13 @@ import { audit } from "@/lib/db";
 import { assertSameOrigin, apiError } from "@/lib/http";
 import { updateManagedUser } from "@/lib/user-management";
 
-const schema = z.object({ name: z.string().trim().min(2).max(200), role: z.enum(["CEO_ADMIN", "OPERATIONS", "FINANCE"]), active: z.boolean(), password: passwordSchema.optional().or(z.literal("")) });
+const schema = z.object({
+  name: z.string().trim().min(2).max(200),
+  role: z.enum(["CEO_ADMIN", "OPERATIONS", "FINANCE"]),
+  active: z.boolean(),
+  password: passwordSchema.optional().or(z.literal("")),
+  permissions: z.record(z.string(), z.object({ read: z.boolean(), write: z.boolean() })).optional(),
+});
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

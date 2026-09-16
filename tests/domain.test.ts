@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildAlerts } from "@/lib/monitor";
-import { canRead, canWrite, moduleSchemas } from "@/lib/modules";
+import { canRead, canWrite, moduleSchemas, resolveModulePermissions } from "@/lib/modules";
 import type { AppRecord, RecordModuleKey } from "@/lib/types";
 
 const record = (module: RecordModuleKey, id: string, data: Record<string, unknown>): AppRecord => ({ id, module, data, createdAt: "2026-08-20T00:00:00Z", updatedAt: "2026-08-20T00:00:00Z" });
@@ -13,6 +13,24 @@ describe("permissões e validação", () => {
     expect(canWrite("OPERATIONS", "invoices")).toBe(false);
     expect(canRead("OPERATIONS", "products")).toBe(true);
     expect(canWrite("FINANCE", "quotes")).toBe(true);
+  });
+
+  it("resolve permissões efetivas por usuário a partir do papel mais exceções", () => {
+    // Sem exceções, vale só o padrão do papel.
+    const defaults = resolveModulePermissions("FINANCE", []);
+    expect(defaults.read).toEqual(expect.arrayContaining(["invoices", "expenses"]));
+    expect(defaults.read).not.toEqual(expect.arrayContaining(["accesses"]));
+
+    // Exceção concede acesso além do papel (ex.: Financeiro passa a ver Acessos).
+    const granted = resolveModulePermissions("FINANCE", [{ module: "accesses", can_read: 1, can_write: 0 }]);
+    expect(granted.read).toContain("accesses");
+    expect(granted.write).not.toContain("accesses");
+
+    // Exceção também revoga um módulo que o papel liberaria por padrão.
+    const revoked = resolveModulePermissions("CEO_ADMIN", [{ module: "invoices", can_read: 0, can_write: 0 }]);
+    expect(revoked.read).not.toContain("invoices");
+    expect(revoked.write).not.toContain("invoices");
+    expect(revoked.read).toContain("clients");
   });
 
   it("valida dados e remove campos de senha não previstos", () => {
