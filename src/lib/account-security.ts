@@ -7,7 +7,7 @@ const MAX_LOGIN_ATTEMPTS = 8;
 
 export const passwordSchema = z
   .string()
-  .min(10, "Use pelo menos 10 caracteres.")
+  .min(6, "Use pelo menos 6 caracteres.")
   .max(200, "A senha é muito longa.")
   .regex(/[A-Za-zÀ-ÿ]/, "Inclua pelo menos uma letra.")
   .regex(/[0-9]/, "Inclua pelo menos um número.")
