@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, CalendarDays, Copy, Crown, FlaskConical, ImageIcon, Link2, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
+import { Building2, CalendarDays, Copy, Crown, Eye, EyeOff, FlaskConical, ImageIcon, Link2, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
 import { DateField } from "@/components/date-field";
 import { slugify } from "@/lib/saas";
 
@@ -126,6 +126,7 @@ function OrganizationModal({ value, close, saved, notify }: { value: SaasOrganiz
   const [error, setError] = useState("");
   const [slugEdited, setSlugEdited] = useState(Boolean(current));
   const [createdMessage, setCreatedMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   function selectLogo(file?: File) {
     setError("");
@@ -162,7 +163,7 @@ function OrganizationModal({ value, close, saved, notify }: { value: SaasOrganiz
       <label className="field"><span>Limite de usuários *</span><input required type="number" min="1" max="500" value={form.maxUsers} onChange={(event) => setForm({ ...form, maxUsers: Number(event.target.value) })} /></label>
       <DateField label="Próxima renovação" value={form.renewalDate} onChange={(value) => setForm({ ...form, renewalDate: value })} />
       <label className="field checkbox full"><input type="checkbox" checked={form.isTestClient} onChange={(event) => setForm({ ...form, isTestClient: event.target.checked })} /><span>Cliente de teste manual</span></label>
-      {!current && <><div className="saas-form-divider"><span>ADMINISTRADOR DA EMPRESA</span><p>Será solicitado que altere a senha provisória no primeiro acesso.</p></div><label className="field"><span>Nome do administrador *</span><input required value={form.adminName} onChange={(event) => setForm({ ...form, adminName: event.target.value })} /></label><label className="field"><span>E-mail do administrador *</span><input required type="email" value={form.adminEmail} onChange={(event) => setForm({ ...form, adminEmail: event.target.value })} /></label><label className="field full"><span>Senha provisória *</span><input required minLength={6} type="password" autoComplete="new-password" value={form.temporaryPassword} onChange={(event) => setForm({ ...form, temporaryPassword: event.target.value })} /><small className="field-hint">Mínimo de 6 caracteres. A senha não aparece novamente após o cadastro.</small></label></>}
+      {!current && <><div className="saas-form-divider"><span>ADMINISTRADOR DA EMPRESA</span><p>Será solicitado que altere a senha provisória no primeiro acesso.</p></div><label className="field"><span>Nome do administrador *</span><input required value={form.adminName} onChange={(event) => setForm({ ...form, adminName: event.target.value })} /></label><label className="field"><span>E-mail do administrador *</span><input required type="email" value={form.adminEmail} onChange={(event) => setForm({ ...form, adminEmail: event.target.value })} /></label><label className="field full"><span>Senha provisória *</span><input required minLength={6} type={showPassword ? "text" : "password"} autoComplete="new-password" value={form.temporaryPassword} onChange={(event) => setForm({ ...form, temporaryPassword: event.target.value })} /><small className="field-hint">Mínimo de 6 caracteres. A senha não aparece novamente após o cadastro.</small></label><label className="field checkbox full"><input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} /><span>{showPassword ? <EyeOff size={14} /> : <Eye size={14} />} Mostrar senha</span></label></>}
       {current && <div className="saas-current-admin"><ShieldCheck /><span><b>Administrador atual</b>{current.adminName} · {current.adminEmail}</span><button type="button" className="ghost" onClick={() => void copyText(buildAccessMessage(current, `${window.location.origin}/login`), notify, "Mensagem de acesso copiada.")}><Link2 size={15} /> Copiar acesso</button></div>}
       <div className="saas-form-divider"><span>PLANO E COBRANÇA</span><p>Controle comercial da assinatura. A integração automática com o gateway será conectada separadamente.</p></div>
       <label className="field"><span>Valor da assinatura (R$)</span><input type="number" min="0" step="0.01" value={form.monthlyPrice} onChange={(event) => setForm({ ...form, monthlyPrice: Number(event.target.value) })} /></label>
