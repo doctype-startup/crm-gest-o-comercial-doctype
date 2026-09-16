@@ -105,8 +105,8 @@ body{font-size:15px;line-height:1.55;color:var(--ux-text)}
 .commercial-kpis span{font-size:11px!important;line-height:1.35!important;color:#a6b3c6!important}
 .commercial-kpis strong{font-size:25px!important;line-height:1.15!important}
 
-/* Focus visibility */
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(255,100,0,.28)!important;outline-offset:2px!important}
+/* Focus visibility — brilho suave em vez de contorno grosso deslocado (acessibilidade mantida) */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none!important;box-shadow:0 0 0 3px rgba(255,100,0,.22)!important}
 
 @media(max-width:900px){
   .section-title{align-items:flex-start!important}
