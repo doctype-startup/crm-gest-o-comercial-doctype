@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, CalendarDays, Crown, FlaskConical, ImageIcon, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
+import { Building2, CalendarDays, Copy, Crown, FlaskConical, ImageIcon, Link2, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
 import { DateField } from "@/components/date-field";
 import { slugify } from "@/lib/saas";
 
@@ -31,6 +31,28 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error || "Não foi possível concluir a operação.");
   return body;
+}
+
+// A senha provisória só existe em texto puro no momento do cadastro (o backend
+// armazena apenas o hash) — por isso só entra na mensagem quando informada aqui,
+// nunca é buscada ou reconstruída depois.
+function buildAccessMessage(input: { name: string; adminName: string; adminEmail: string }, loginUrl: string, temporaryPassword?: string) {
+  const lines = [
+    `Olá, ${input.adminName || "tudo bem"}! 👋`,
+    `Aqui está o acesso da ${input.name} ao DOC.OS — o sistema operacional de gestão da DOCTYPE. 🚀`,
+    "",
+    `🔗 Acesso: ${loginUrl}`,
+    `📧 E-mail: ${input.adminEmail}`,
+  ];
+  if (temporaryPassword) lines.push(`🔑 Senha provisória: ${temporaryPassword}`, "", "No primeiro acesso, você vai criar uma senha pessoal.");
+  else lines.push("", 'Esqueceu a senha? Use a opção "Esqueceu a senha?" na tela de login.');
+  lines.push("", "Qualquer dúvida, é só chamar a gente.", "Equipe DOCTYPE");
+  return lines.join("\n");
+}
+
+async function copyText(text: string, notify: (message: string) => void, successMessage: string) {
+  try { await navigator.clipboard.writeText(text); notify(successMessage); }
+  catch { notify("Não foi possível copiar automaticamente. Selecione o texto e copie manualmente."); }
 }
 
 export function SaasAdmin({ notify }: { notify: (message: string) => void }) {
@@ -77,28 +99,33 @@ export function SaasAdmin({ notify }: { notify: (message: string) => void }) {
     <div className="saas-kpis"><article><span>Empresas ativas</span><strong>{active}</strong><small>{organizations.length} contas cadastradas</small></article><article><span>MRR contratado</span><strong>{money(contractedMrr)}</strong><small>Receita recorrente prevista</small></article><article><span>Cobranças atrasadas</span><strong>{overdueAccounts}</strong><small>{overdueAccounts ? "Requer acompanhamento" : "Nenhuma inadimplência"}</small></article><article><span>Em período de teste</span><strong>{trials}</strong><small>Conversões em acompanhamento</small></article><article><span>Usuários ativos</span><strong>{activeUsers}</strong><small>{usedSeats} usuários cadastrados</small></article><article><span>Licenças utilizadas</span><strong>{usedSeats}/{totalSeats}</strong><small>Capacidade contratada</small></article></div>
     <div className="saas-toolbar"><label><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar empresa, plano, administrador…" />{search && <button aria-label="Limpar busca" onClick={() => setSearch("")}><X /></button>}</label><button className="ghost" onClick={() => void load()}><RefreshCw /> Atualizar</button></div>
     {error && <div className="form-error">{error}</div>}
-    {loading ? <div className="saas-loading"><i /> Carregando empresas SaaS…</div> : visible.length ? <div className="saas-grid">{visible.map((organization) => <OrganizationCard key={organization.id} organization={organization} edit={() => setModal(organization)} />)}</div> : <div className="empty-state"><Building2 /><h3>{search ? "Nenhuma empresa encontrada." : "Nenhuma empresa SaaS cadastrada."}</h3><p>{search ? "Tente outro termo de busca." : "Crie a primeira conta para iniciar o provisionamento."}</p>{!search && <button className="primary" onClick={() => setModal("new")}><Plus /> Nova empresa</button>}</div>}
-    {modal && <OrganizationModal value={modal} close={() => setModal(null)} saved={async () => { setModal(null); notify(modal === "new" ? "Empresa SaaS criada." : "Empresa SaaS atualizada."); await load(); }} />}
+    {loading ? <div className="saas-loading"><i /> Carregando empresas SaaS…</div> : visible.length ? <div className="saas-grid">{visible.map((organization) => <OrganizationCard key={organization.id} organization={organization} edit={() => setModal(organization)} notify={notify} />)}</div> : <div className="empty-state"><Building2 /><h3>{search ? "Nenhuma empresa encontrada." : "Nenhuma empresa SaaS cadastrada."}</h3><p>{search ? "Tente outro termo de busca." : "Crie a primeira conta para iniciar o provisionamento."}</p>{!search && <button className="primary" onClick={() => setModal("new")}><Plus /> Nova empresa</button>}</div>}
+    {modal && <OrganizationModal value={modal} close={() => setModal(null)} saved={async () => { setModal(null); notify(modal === "new" ? "Empresa SaaS criada." : "Empresa SaaS atualizada."); await load(); }} notify={notify} />}
   </div>;
 }
 
-function OrganizationCard({ organization, edit }: { organization: SaasOrganization; edit: () => void }) {
+function OrganizationCard({ organization, edit, notify }: { organization: SaasOrganization; edit: () => void; notify: (message: string) => void }) {
   const initials = organization.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "SA";
   const usage = Math.min(100, organization.maxUsers ? (organization.userCount / organization.maxUsers) * 100 : 0);
+  async function copyAccess() {
+    const loginUrl = `${window.location.origin}/login`;
+    await copyText(buildAccessMessage(organization, loginUrl), notify, "Mensagem de acesso copiada.");
+  }
   return <article className="saas-card">
-    <div className="saas-card-head"><div className="saas-logo">{organization.logoDataUrl ? <Image src={organization.logoDataUrl} alt={`Logo de ${organization.name}`} width={66} height={66} unoptimized /> : <span>{initials}</span>}</div><div><span className={`saas-status ${organization.status.toLowerCase()}`}>{organization.status}</span>{organization.isTestClient && <span className="saas-status test-client"><FlaskConical size={12} /> Teste manual</span>}<h3>{organization.name}</h3><p>/{organization.slug}</p></div><button aria-label={`Editar ${organization.name}`} onClick={edit}><Pencil /></button></div>
+    <div className="saas-card-head"><div className="saas-logo">{organization.logoDataUrl ? <Image src={organization.logoDataUrl} alt={`Logo de ${organization.name}`} width={66} height={66} unoptimized /> : <span>{initials}</span>}</div><div><span className={`saas-status ${organization.status.toLowerCase()}`}>{organization.status}</span>{organization.isTestClient && <span className="saas-status test-client"><FlaskConical size={12} /> Teste manual</span>}<h3>{organization.name}</h3><p>/{organization.slug}</p></div><div className="saas-card-actions"><button aria-label={`Copiar acesso de ${organization.name}`} onClick={() => void copyAccess()}><Link2 /></button><button aria-label={`Editar ${organization.name}`} onClick={edit}><Pencil /></button></div></div>
     <div className="saas-plan"><span>Plano<strong>{organization.plan} · {organization.monthlyPrice ? money(organization.monthlyPrice) : "Valor a definir"}</strong></span><span>Cobrança<strong className={`billing-${organization.paymentStatus.toLowerCase().replaceAll(" ", "-")}`}>{organization.paymentStatus} · {dateLabel(organization.nextChargeDate)}</strong></span></div>
     <div className="saas-seats"><div><span>Usuários</span><b>{organization.userCount} de {organization.maxUsers}</b></div><div><i style={{ width: `${usage}%` }} /></div></div>
     <div className="saas-meta"><p><Users /><span><b>Administrador</b>{organization.adminName || "Não definido"}</span></p><p><ShieldCheck /><span><b>Acesso</b>{organization.adminEmail || "Não definido"}</span></p><p><Building2 /><span><b>Registros</b>{organization.recordCount}</span></p><p><CalendarDays /><span><b>Criada em</b>{new Date(organization.createdAt).toLocaleDateString("pt-BR")}</span></p></div>
   </article>;
 }
 
-function OrganizationModal({ value, close, saved }: { value: SaasOrganization | "new"; close: () => void; saved: () => Promise<void> }) {
+function OrganizationModal({ value, close, saved, notify }: { value: SaasOrganization | "new"; close: () => void; saved: () => Promise<void>; notify: (message: string) => void }) {
   const current = value === "new" ? null : value;
   const [form, setForm] = useState<Form>(current ? { name: current.name, slug: current.slug, logoDataUrl: current.logoDataUrl, plan: current.plan, status: current.status, maxUsers: current.maxUsers, renewalDate: current.renewalDate, notes: current.notes, isTestClient: current.isTestClient, adminName: current.adminName, adminEmail: current.adminEmail, temporaryPassword: "", monthlyPrice: current.monthlyPrice, billingCycle: current.billingCycle, billingDay: current.billingDay, billingEmail: current.billingEmail, paymentMethod: current.paymentMethod, paymentStatus: current.paymentStatus, nextChargeDate: current.nextChargeDate, graceUntil: current.graceUntil } : blank);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [slugEdited, setSlugEdited] = useState(Boolean(current));
+  const [createdMessage, setCreatedMessage] = useState("");
 
   function selectLogo(file?: File) {
     setError("");
@@ -116,11 +143,17 @@ function OrganizationModal({ value, close, saved }: { value: SaasOrganization | 
     try {
       const payload = current ? { name: form.name, slug: form.slug, logoDataUrl: form.logoDataUrl, plan: form.plan, status: form.status, maxUsers: form.maxUsers, renewalDate: form.renewalDate, notes: form.notes, isTestClient: form.isTestClient, monthlyPrice: form.monthlyPrice, billingCycle: form.billingCycle, billingDay: form.billingDay, billingEmail: form.billingEmail, paymentMethod: form.paymentMethod, paymentStatus: form.paymentStatus, nextChargeDate: form.nextChargeDate, graceUntil: form.graceUntil } : form;
       await request(current ? `/api/admin/organizations/${current.id}` : "/api/admin/organizations", { method: current ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      await saved();
+      if (current) { await saved(); return; }
+      const loginUrl = `${window.location.origin}/login`;
+      setCreatedMessage(buildAccessMessage(form, loginUrl, form.temporaryPassword));
+      setBusy(false);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível salvar a empresa."); setBusy(false); }
   }
 
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}><div className="modal saas-modal" role="dialog" aria-modal="true" aria-labelledby="saas-modal-title"><div className="modal-head"><div><span className="eyebrow">ADMIN SAAS MESTRE</span><h2 id="saas-modal-title">{current ? "Editar empresa" : "Provisionar nova empresa"}</h2></div><button aria-label="Fechar" onClick={close}><X /></button></div><form onSubmit={submit}>
+  const dismiss = () => { if (createdMessage) void saved(); else close(); };
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) dismiss(); }}><div className="modal saas-modal" role="dialog" aria-modal="true" aria-labelledby="saas-modal-title"><div className="modal-head"><div><span className="eyebrow">ADMIN SAAS MESTRE</span><h2 id="saas-modal-title">{createdMessage ? "Empresa criada" : current ? "Editar empresa" : "Provisionar nova empresa"}</h2></div><button aria-label="Fechar" onClick={dismiss}><X /></button></div>
+    {createdMessage ? <div className="saas-success"><ShieldCheck /><h3>{form.name} está pronta.</h3><p>Copie a mensagem abaixo e envie para {form.adminName || "o administrador"} — a senha provisória só aparece agora, por segurança.</p><pre>{createdMessage}</pre><div className="modal-actions"><button type="button" className="primary" onClick={() => void copyText(createdMessage, notify, "Mensagem de acesso copiada.")}><Copy size={16} /> Copiar mensagem de acesso</button><button type="button" className="ghost" onClick={dismiss}>Concluir</button></div></div> : <form onSubmit={submit}>
     <div className="saas-form-grid"><div className="saas-logo-field"><span>Logo da empresa</span><div><div>{form.logoDataUrl ? <Image src={form.logoDataUrl} alt="Prévia da logo" width={80} height={80} unoptimized /> : <ImageIcon />}</div><label className="ghost"><Upload /> {form.logoDataUrl ? "Trocar logo" : "Selecionar logo"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { selectLogo(event.target.files?.[0]); event.target.value = ""; }} /></label>{form.logoDataUrl && <button type="button" onClick={() => setForm({ ...form, logoDataUrl: "" })}>Remover</button>}</div></div>
       <label className="field"><span>Nome da empresa *</span><input required value={form.name} onChange={(event) => { const name = event.target.value; setForm((state) => ({ ...state, name, slug: slugEdited ? state.slug : slugify(name) })); }} /></label>
       <label className="field"><span>Identificador *</span><input required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" value={form.slug} onChange={(event) => { setSlugEdited(true); setForm({ ...form, slug: slugify(event.target.value) }); }} /><small className="field-hint">Usado para identificar a conta: /{form.slug || "empresa"}</small></label>
@@ -130,7 +163,7 @@ function OrganizationModal({ value, close, saved }: { value: SaasOrganization | 
       <DateField label="Próxima renovação" value={form.renewalDate} onChange={(value) => setForm({ ...form, renewalDate: value })} />
       <label className="field checkbox full"><input type="checkbox" checked={form.isTestClient} onChange={(event) => setForm({ ...form, isTestClient: event.target.checked })} /><span>Cliente de teste manual</span></label>
       {!current && <><div className="saas-form-divider"><span>ADMINISTRADOR DA EMPRESA</span><p>Será solicitado que altere a senha provisória no primeiro acesso.</p></div><label className="field"><span>Nome do administrador *</span><input required value={form.adminName} onChange={(event) => setForm({ ...form, adminName: event.target.value })} /></label><label className="field"><span>E-mail do administrador *</span><input required type="email" value={form.adminEmail} onChange={(event) => setForm({ ...form, adminEmail: event.target.value })} /></label><label className="field full"><span>Senha provisória *</span><input required minLength={10} type="password" autoComplete="new-password" value={form.temporaryPassword} onChange={(event) => setForm({ ...form, temporaryPassword: event.target.value })} /><small className="field-hint">Mínimo de 10 caracteres. A senha não aparece novamente após o cadastro.</small></label></>}
-      {current && <div className="saas-current-admin"><ShieldCheck /><span><b>Administrador atual</b>{current.adminName} · {current.adminEmail}</span></div>}
+      {current && <div className="saas-current-admin"><ShieldCheck /><span><b>Administrador atual</b>{current.adminName} · {current.adminEmail}</span><button type="button" className="ghost" onClick={() => void copyText(buildAccessMessage(current, `${window.location.origin}/login`), notify, "Mensagem de acesso copiada.")}><Link2 size={15} /> Copiar acesso</button></div>}
       <div className="saas-form-divider"><span>PLANO E COBRANÇA</span><p>Controle comercial da assinatura. A integração automática com o gateway será conectada separadamente.</p></div>
       <label className="field"><span>Valor da assinatura (R$)</span><input type="number" min="0" step="0.01" value={form.monthlyPrice} onChange={(event) => setForm({ ...form, monthlyPrice: Number(event.target.value) })} /></label>
       <label className="field"><span>Ciclo de cobrança</span><select value={form.billingCycle} onChange={(event) => setForm({ ...form, billingCycle: event.target.value as Form["billingCycle"] })}><option>Mensal</option><option>Trimestral</option><option>Anual</option></select></label>
@@ -142,5 +175,6 @@ function OrganizationModal({ value, close, saved }: { value: SaasOrganization | 
       <DateField label="Prazo de regularização" value={form.graceUntil} onChange={(value) => setForm({ ...form, graceUntil: value })} />
       <label className="field full"><span>Observações internas</span><textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label>
     </div>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button type="button" className="ghost" onClick={close}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Salvando…" : current ? "Salvar alterações" : "Criar empresa e acesso"}</button></div>
-  </form></div></div>;
+  </form>}
+  </div></div>;
 }
