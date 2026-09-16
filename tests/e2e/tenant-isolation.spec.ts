@@ -31,6 +31,7 @@ async function provisionOrganization(page: Page, input: { name: string; slug: st
   await dialog.getByLabel("Status da cobrança").selectOption("Em dia");
   await dialog.getByLabel("Próxima cobrança").fill("10/09/2026");
   await dialog.getByRole("button", { name: "Criar empresa e acesso" }).click();
+  await dialog.getByRole("button", { name: "Concluir" }).click();
   await expect(page.getByText("Empresa SaaS criada.")).toBeVisible();
   await expect(page.getByRole("heading", { name: input.name, exact: true })).toBeVisible();
 }
