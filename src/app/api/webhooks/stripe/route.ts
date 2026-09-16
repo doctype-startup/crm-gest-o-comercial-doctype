@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { db, ensureSchema } from "@/lib/db";
+import { notifyUsers, usersWithModuleAccess } from "@/lib/notifications";
 import { getStripe } from "@/lib/stripe";
 import { billingMethodFromStripeType, invoiceSubscriptionId, isoDateFromUnix, stripeEventStream, stripeId } from "@/lib/stripe-billing";
 import { invalidateState } from "@/lib/state-cache";
@@ -79,14 +80,20 @@ export async function POST(request: Request) {
     ? await resolveSubscriptionPaymentMethod(stripeId((event.data.object as Stripe.Checkout.Session).subscription))
     : null;
 
-  await db.transaction().execute(async (trx) => {
+  // Devolvido pela transação quando uma fatura de cliente é confirmada como paga —
+  // a notificação (central + e-mail) só dispara depois do commit, fora da transação,
+  // pra não segurar a conexão com o banco esperando o envio do e-mail.
+  type PaidInvoice = { value: number; description: string; clientName: string };
+
+  const paidInvoice: PaidInvoice | null = await db.transaction().execute(async (trx): Promise<PaidInvoice | null> => {
+    let result: PaidInvoice | null = null;
     const now = new Date().toISOString();
     const inserted = await trx.insertInto("stripe_events")
       .values({ id: event.id, org_id: orgId, type: event.type, event_created: event.created, processed_at: now })
       .onConflict((conflict) => conflict.column("id").doNothing())
       .returning("id")
       .executeTakeFirst();
-    if (!inserted) return;
+    if (!inserted) return result;
 
     const cursor = await trx.selectFrom("stripe_event_cursors").select("event_created").where("org_id", "=", orgId).where("stream", "=", stream).executeTakeFirst();
     const isCurrent = !cursor || event.created >= cursor.event_created;
@@ -106,6 +113,14 @@ export async function POST(request: Request) {
           : { ...data, paymentLinkStatus: failed ? "Falhou" : "Pendente" };
         await trx.updateTable("records").set({ data: JSON.stringify(nextData), updated_at: now }).where("id", "=", recordId).where("org_id", "=", orgId).execute();
         invalidateState(orgId);
+        if (paid) {
+          const clientRow = data.clientId
+            ? await trx.selectFrom("records").select(["data"]).where("id", "=", String(data.clientId)).where("org_id", "=", orgId).where("module", "=", "clients").executeTakeFirst()
+            : undefined;
+          const clientData = clientRow ? (JSON.parse(clientRow.data) as Record<string, unknown>) : {};
+          const clientName = typeof clientData.name === "string" && clientData.name ? clientData.name : "um cliente";
+          result = { value: Number(data.value || 0), description: String(data.description || "Fatura"), clientName };
+        }
       }
     }
 
@@ -161,7 +176,19 @@ export async function POST(request: Request) {
         .onConflict((conflict) => conflict.columns(["org_id", "stream"]).doUpdateSet({ event_created: event.created, event_id: event.id, updated_at: now }))
         .execute();
     }
+
+    return result;
   });
+
+  if (paidInvoice) {
+    const money = paidInvoice.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const recipients = await usersWithModuleAccess(orgId, "invoices");
+    await notifyUsers(orgId, recipients, {
+      title: "Pagamento recebido",
+      body: `${paidInvoice.clientName} pagou "${paidInvoice.description}" — ${money}.`,
+      link: "finance",
+    });
+  }
 
   return Response.json({ received: true });
 }

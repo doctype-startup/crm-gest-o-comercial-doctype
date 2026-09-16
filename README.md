@@ -15,7 +15,8 @@ Sistema operacional de gestão da DOCTYPE, hoje também vendido como produto Saa
 - DOC CRM: Start, Smart, Pro e Legado; MRR, setup, custos, margem e meta.
 - Equipe: integrantes, papéis, responsabilidades e custo.
 - DOC Monitor: alertas calculados a partir de exceções reais da operação.
-- Configurações: meta, usuários, permissões, senha, exportação e restauração de backup.
+- Configurações: meta, usuários, permissões por módulo, senha, exportação e restauração de backup.
+- Notificações: central dentro da plataforma (sino no topo) + e-mail (Resend) — hoje dispara quando uma fatura de cliente é paga, para quem tem permissão de ver Financeiro.
 
 O módulo "DOC CRM" (comercial interno de cada empresa cliente) não possui funil de leads, propostas ou follow-up — é só acompanhamento de MRR/margem dos próprios planos vendidos por aquela empresa.
 
@@ -91,3 +92,12 @@ Sem `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` configuradas, o sistema continua
 4. Copie o "Signing secret" desse endpoint para `STRIPE_WEBHOOK_SECRET`.
 
 O webhook é o único lugar que atualiza status de pagamento, método usado e que promove uma empresa de "Teste" para "Ativo" automaticamente — sem ele configurado corretamente, uma cobrança pode ser aprovada na Stripe sem nunca refletir no DOC.OS.
+
+## Notificações por e-mail (Resend)
+
+Sem `RESEND_API_KEY` configurada, o sistema continua funcionando normalmente — a notificação continua sendo criada na central dentro da plataforma (sino no topo, em qualquer tela), só o e-mail deixa de ser enviado (fail closed, nunca derruba a operação por causa de e-mail).
+
+1. Crie uma conta em [resend.com](https://resend.com) e gere uma API key (Settings → API Keys) para `RESEND_API_KEY`.
+2. Opcional, mas recomendado em produção: em Domains, adicione e verifique o domínio de onde os e-mails devem sair (registros SPF/DKIM), e configure `NOTIFICATIONS_FROM_EMAIL` com um remetente desse domínio (ex.: `DOCTYPE OS <notificacoes@seudominio.com.br>`). Sem domínio verificado, o remetente padrão (`onboarding@resend.dev`) só entrega para o e-mail da própria conta Resend — suficiente para testar, não para uso real com clientes.
+
+Hoje o único evento que dispara notificação é uma fatura de cliente confirmada como paga (`src/app/api/webhooks/stripe/route.ts`) — todos os usuários ativos da organização com permissão de leitura no módulo Financeiro (papel ou exceção individual, ver `src/lib/notifications.ts`) recebem a notificação na central e por e-mail. Novos eventos (tarefa atrasada, renovação próxima, 2FA pendente etc., hoje só visíveis no DOC Monitor) podem reutilizar `notifyUsers()`/`usersWithModuleAccess()` da mesma forma.

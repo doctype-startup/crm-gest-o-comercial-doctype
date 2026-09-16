@@ -135,6 +135,17 @@ export interface UserModulePermissionsTable {
   updated_at: string;
 }
 
+export interface NotificationsTable {
+  id: string;
+  org_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  link: string;
+  read: number;
+  created_at: string;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   saas_accounts: SaasAccountsTable;
@@ -149,6 +160,7 @@ export interface Database {
   audit_logs: AuditLogsTable;
   settings: SettingsTable;
   user_module_permissions: UserModulePermissionsTable;
+  notifications: NotificationsTable;
 }
 
 export type ModulePermissions = { read: RecordModuleKey[]; write: RecordModuleKey[] };

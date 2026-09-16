@@ -258,6 +258,26 @@ async function createSchema() {
     .addPrimaryKeyConstraint("user_module_permissions_pk", ["user_id", "module"])
     .execute();
 
+  await db.schema
+    .createTable("notifications")
+    .ifNotExists()
+    .addColumn("id", "varchar(36)", (c) => c.primaryKey())
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("user_id", "varchar(36)", (c) => c.notNull().references("users.id").onDelete("cascade"))
+    .addColumn("title", "varchar(200)", (c) => c.notNull())
+    .addColumn("body", "text", (c) => c.notNull())
+    .addColumn("link", "varchar(60)", (c) => c.notNull().defaultTo(""))
+    .addColumn("read", "integer", (c) => c.notNull().defaultTo(0))
+    .addColumn("created_at", "varchar(40)", (c) => c.notNull())
+    .execute();
+
+  await db.schema
+    .createIndex("notifications_user_created")
+    .ifNotExists()
+    .on("notifications")
+    .columns(["user_id", "created_at"])
+    .execute();
+
   const hasPlatformAdmin = await db.selectFrom("platform_admins").select("user_id").limit(1).executeTakeFirst();
   if (!hasPlatformAdmin) {
     const candidate = await db
