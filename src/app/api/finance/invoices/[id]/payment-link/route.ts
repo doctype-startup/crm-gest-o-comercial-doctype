@@ -1,7 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { apiError, assertSameOrigin, HttpError } from "@/lib/http";
-import { canWrite } from "@/lib/modules";
 import { getStripe, stripeIsTestMode } from "@/lib/stripe";
 import { AUTOMATED_PAYMENT_METHOD_TYPES } from "@/lib/stripe-billing";
 import { invalidateState } from "@/lib/state-cache";
@@ -12,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     assertSameOrigin(request);
     const user = await requireSession();
-    if (!canWrite(user.role, "invoices")) throw new HttpError(403, "Você não pode gerar cobranças.");
+    if (!user.modulePermissions.write.includes("invoices")) throw new HttpError(403, "Você não pode gerar cobranças.");
     const { id } = await params;
 
     const row = await db.selectFrom("records").selectAll().where("id", "=", id).where("org_id", "=", user.orgId).where("module", "=", "invoices").executeTakeFirst();

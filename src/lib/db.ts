@@ -243,6 +243,21 @@ async function createSchema() {
     .addPrimaryKeyConstraint("settings_pk", ["org_id", "key"])
     .execute();
 
+  // Sobrepõe, por usuário, os padrões de leitura/escrita por módulo definidos em
+  // src/lib/modules.ts (readByRole/writeByRole). Ausência de linha para um módulo
+  // = usa o padrão do papel; presença = a linha manda, mesmo que o papel mude depois.
+  await db.schema
+    .createTable("user_module_permissions")
+    .ifNotExists()
+    .addColumn("org_id", "varchar(36)", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("user_id", "varchar(36)", (c) => c.notNull().references("users.id").onDelete("cascade"))
+    .addColumn("module", "varchar(30)", (c) => c.notNull())
+    .addColumn("can_read", "integer", (c) => c.notNull().defaultTo(0))
+    .addColumn("can_write", "integer", (c) => c.notNull().defaultTo(0))
+    .addColumn("updated_at", "varchar(40)", (c) => c.notNull())
+    .addPrimaryKeyConstraint("user_module_permissions_pk", ["user_id", "module"])
+    .execute();
+
   const hasPlatformAdmin = await db.selectFrom("platform_admins").select("user_id").limit(1).executeTakeFirst();
   if (!hasPlatformAdmin) {
     const candidate = await db

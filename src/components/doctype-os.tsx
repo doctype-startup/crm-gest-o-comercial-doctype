@@ -13,13 +13,14 @@ import { SIDEBAR_LOGO_IMAGE } from "@/lib/sidebar-logo-image";
 import { DateField } from "@/components/date-field";
 import { SaasAdmin } from "@/components/saas-admin";
 import { SubscriptionView } from "@/components/subscription-view";
-import type { Alert, AppRecord, ModuleKey, Role, SessionUser } from "@/lib/types";
+import { ALL_MODULE_KEYS, MODULE_LABELS, canRead, canWrite } from "@/lib/modules";
+import type { Alert, AppRecord, ModuleKey, RecordModuleKey, Role, SessionUser } from "@/lib/types";
 
 type View = "dashboard" | "saas" | "subscription" | "clients" | "accesses" | "finance" | "tasks" | "renewals" | "crm" | "team" | "monitor" | "settings";
 type Field = { key: string; label: string; type?: "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "client" | "products" | "url" | "email" | "image" | "document"; options?: string[]; required?: boolean; full?: boolean; hint?: string };
 type Config = { singular: string; title: string; fields: Field[]; columns: { key: string; label: string; format?: "money" | "badge" | "client" | "boolean" | "date" }[]; defaults: Record<string, unknown> };
 type StatePayload = { records: AppRecord[]; alerts: Alert[]; settings: Record<string, unknown>; user: SessionUser; generatedAt: string };
-type ManagedUser = { id: string; name: string; email: string; role: Role; active: boolean; mustChangePassword: boolean };
+type ManagedUser = { id: string; name: string; email: string; role: Role; active: boolean; mustChangePassword: boolean; permissions: { read: RecordModuleKey[]; write: RecordModuleKey[] } };
 
 const configs: Record<ModuleKey, Config> = {
   clients: {
@@ -91,11 +92,11 @@ const configs: Record<ModuleKey, Config> = {
   },
 };
 
-const nav: { id: View; label: string; icon: typeof BarChart3; roles?: Role[]; masterOnly?: boolean }[] = [
-  { id: "dashboard", label: "Visão Geral", icon: BarChart3 }, { id: "saas", label: "Admin SaaS", icon: Crown, roles: ["CEO_ADMIN"], masterOnly: true }, { id: "subscription", label: "Minha assinatura", icon: BadgeDollarSign, roles: ["CEO_ADMIN"] }, { id: "clients", label: "Clientes 360°", icon: BriefcaseBusiness },
-  { id: "accesses", label: "Acessos", icon: FileKey2, roles: ["CEO_ADMIN", "OPERATIONS"] }, { id: "finance", label: "Financeiro", icon: CircleDollarSign, roles: ["CEO_ADMIN", "FINANCE"] },
-  { id: "tasks", label: "Operação", icon: CheckSquare, roles: ["CEO_ADMIN", "OPERATIONS"] }, { id: "renewals", label: "Renovações", icon: RotateCcw },
-  { id: "crm", label: "DOC CRM", icon: Activity }, { id: "team", label: "Equipe", icon: Users, roles: ["CEO_ADMIN", "OPERATIONS"] },
+const nav: { id: View; label: string; icon: typeof BarChart3; roles?: Role[]; masterOnly?: boolean; modules?: RecordModuleKey[] }[] = [
+  { id: "dashboard", label: "Visão Geral", icon: BarChart3 }, { id: "saas", label: "Admin SaaS", icon: Crown, roles: ["CEO_ADMIN"], masterOnly: true }, { id: "subscription", label: "Minha assinatura", icon: BadgeDollarSign, roles: ["CEO_ADMIN"] }, { id: "clients", label: "Clientes 360°", icon: BriefcaseBusiness, modules: ["clients"] },
+  { id: "accesses", label: "Acessos", icon: FileKey2, modules: ["accesses"] }, { id: "finance", label: "Financeiro", icon: CircleDollarSign, modules: ["invoices", "expenses"] },
+  { id: "tasks", label: "Operação", icon: CheckSquare, modules: ["tasks"] }, { id: "renewals", label: "Renovações", icon: RotateCcw, modules: ["clients"] },
+  { id: "crm", label: "DOC CRM", icon: Activity, modules: ["crm"] }, { id: "team", label: "Equipe", icon: Users, modules: ["team"] },
   { id: "monitor", label: "DOC Monitor", icon: ShieldCheck }, { id: "settings", label: "Configurações", icon: Settings, roles: ["CEO_ADMIN"] },
 ];
 
@@ -193,7 +194,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
       <aside className={menuOpen ? "sidebar open" : "sidebar"}>
         <button className="mobile-close" aria-label="Fechar menu" onClick={() => setMenuOpen(false)}><X /></button>
         <div className="brand"><Image src={SIDEBAR_LOGO_IMAGE} alt="Símbolo DOCTYPE" width={58} height={58} priority unoptimized /><div><strong>DOCTYPE OS</strong><span>Gestão interna</span></div></div>
-        <nav>{nav.filter((item) => (!item.roles || item.roles.includes(user.role)) && (!item.masterOnly || user.isSaasMaster)).map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => openView(item.id)}><item.icon size={18} /><span>{item.label}</span>{item.id === "monitor" && state?.alerts.length ? <b className="nav-count">{state.alerts.length}</b> : null}</button>)}</nav>
+        <nav>{nav.filter((item) => (!item.modules || item.modules.some((m) => user.modulePermissions.read.includes(m))) && (!item.modules && item.roles ? item.roles.includes(user.role) : true) && (!item.masterOnly || user.isSaasMaster)).map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => openView(item.id)}><item.icon size={18} /><span>{item.label}</span>{item.id === "monitor" && state?.alerts.length ? <b className="nav-count">{state.alerts.length}</b> : null}</button>)}</nav>
         <div className="sidebar-user"><span>{user.name}</span><small>{user.role === "CEO_ADMIN" ? "CEO / Admin" : user.role === "FINANCE" ? "Financeiro" : "Operação"}</small><button onClick={() => setAccountPassword(true)}><KeyRound size={15} /> Alterar minha senha</button><button onClick={logout}><LogOut size={15} /> Sair com segurança</button></div>
         <footer>Mais que marketing.<br /><strong>Estrutura para crescer.</strong></footer>
       </aside>
@@ -209,7 +210,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
               {view === "subscription" && user.role === "CEO_ADMIN" && <SubscriptionView />}
               {view === "clients" && <ClientsView records={clients} search={search} setSearch={setSearch} generatedAt={state.generatedAt} onAdd={() => setModal({ module: "clients" })} onEdit={(record) => setModal({ module: "clients", record })} onDelete={(record) => setConfirmDelete({ module: "clients", record })} />}
               {view === "accesses" && <><div className="notice"><ShieldCheck size={20} /><div><strong>Segurança primeiro.</strong><span>Nunca informe senhas aqui. Guarde somente a referência ao cofre seguro.</span></div></div><ModuleView module="accesses" records={filtered("accesses")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "accesses" })} onEdit={(record) => setModal({ module: "accesses", record })} onDelete={(record) => setConfirmDelete({ module: "accesses", record })} /></>}
-              {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} taxRate={number(state.settings.taxRate)} canWriteInvoices={user.role !== "OPERATIONS"} refresh={() => refresh(true)} notify={notify} />}
+              {view === "finance" && <FinanceView invoices={filtered("invoices")} expenses={filtered("expenses")} search={search} setSearch={setSearch} clientName={clientName} setModal={setModal} setConfirmDelete={setConfirmDelete} taxRate={number(state.settings.taxRate)} canWriteInvoices={user.modulePermissions.write.includes("invoices")} refresh={() => refresh(true)} notify={notify} />}
               {view === "tasks" && <ModuleView module="tasks" records={filtered("tasks")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "tasks" })} onEdit={(record) => setModal({ module: "tasks", record })} onDelete={(record) => setConfirmDelete({ module: "tasks", record })} />}
               {view === "renewals" && <Renewals clients={clients} generatedAt={state.generatedAt} onEdit={(record) => setModal({ module: "clients", record })} />}
               {view === "crm" && <CrmView records={filtered("crm")} search={search} setSearch={setSearch} clientName={clientName} goal={number(state.settings.crmGoal)} onAdd={() => setModal({ module: "crm" })} onEdit={(record) => setModal({ module: "crm", record })} onDelete={(record) => setConfirmDelete({ module: "crm", record })} />}
@@ -514,6 +515,88 @@ function ConfirmModal({ title, text: copy, close, confirm }: { title: string; te
 
 function CompactTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) { if (!rows.length) return <div className="mini-empty">Nenhum registro.</div>; return <div className="table-wrap compact-table"><table><thead><tr>{headers.map((h) => <th key={h}>{h}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{cell}</td>)}</tr>)}</tbody></table></div>; }
 
-function UserModal({ value, close, saved }: { value: ManagedUser | "new"; close: () => void; saved: () => Promise<void> }) { const current = value === "new" ? null : value; const [form, setForm] = useState({ name: current?.name || "", email: current?.email || "", role: current?.role || "OPERATIONS", active: current?.active ?? true, password: "" }); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [showPassword, setShowPassword] = useState(false); async function submit(e: React.FormEvent) { e.preventDefault(); setBusy(true); setError(""); try { await api(current ? `/api/users/${current.id}` : "/api/users", { method: current ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }); await saved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Erro ao salvar."); setBusy(false); } } return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><h2>{current ? "Editar usuário" : "Novo usuário"}</h2><button onClick={close}><X /></button></div><form onSubmit={submit}><div className="form-grid"><label className="field"><span>Nome *</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label className="field"><span>E-mail *</span><input required disabled={Boolean(current)} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label><label className="field"><span>Permissão *</span><select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}><option value="CEO_ADMIN">CEO / Admin</option><option value="OPERATIONS">Operação</option><option value="FINANCE">Financeiro</option></select></label><label className="field"><span>{current ? "Nova senha (opcional)" : "Senha provisória *"}</span><input required={!current} minLength={6} type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label><label className="field checkbox full"><input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} /><span>{showPassword ? <EyeOff size={14} /> : <Eye size={14} />} Mostrar senha</span></label>{current && <label className="field checkbox full"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /><span>Usuário ativo</span></label>}</div>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button type="button" className="ghost" onClick={close}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar usuário"}</button></div></form></div></div>; }
+type PermissionMatrix = Record<RecordModuleKey, { read: boolean; write: boolean }>;
+
+function buildPermissionMatrix(existing: ManagedUser["permissions"] | undefined, role: Role): PermissionMatrix {
+  const readSet = new Set(existing ? existing.read : ALL_MODULE_KEYS.filter((m) => canRead(role, m)));
+  const writeSet = new Set(existing ? existing.write : ALL_MODULE_KEYS.filter((m) => canWrite(role, m)));
+  return Object.fromEntries(ALL_MODULE_KEYS.map((m) => [m, { read: readSet.has(m), write: writeSet.has(m) }])) as PermissionMatrix;
+}
+
+function UserModal({ value, close, saved }: { value: ManagedUser | "new"; close: () => void; saved: () => Promise<void> }) {
+  const current = value === "new" ? null : value;
+  const [form, setForm] = useState({ name: current?.name || "", email: current?.email || "", role: current?.role || "OPERATIONS", active: current?.active ?? true, password: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [permissions, setPermissions] = useState<PermissionMatrix>(() => buildPermissionMatrix(current?.permissions, form.role));
+
+  function applyRole(role: Role) {
+    setForm((f) => ({ ...f, role }));
+    if (!current) setPermissions(buildPermissionMatrix(undefined, role));
+  }
+
+  function togglePermission(module: RecordModuleKey, field: "read" | "write") {
+    setPermissions((prev) => {
+      const entry = prev[module];
+      if (field === "read") {
+        const read = !entry.read;
+        return { ...prev, [module]: { read, write: read ? entry.write : false } };
+      }
+      const write = !entry.write;
+      return { ...prev, [module]: { read: write ? true : entry.read, write } };
+    });
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await api(current ? `/api/users/${current.id}` : "/api/users", { method: current ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, permissions }) });
+      await saved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Erro ao salvar.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal">
+        <div className="modal-head"><h2>{current ? "Editar usuário" : "Novo usuário"}</h2><button onClick={close}><X /></button></div>
+        <form onSubmit={submit}>
+          <div className="form-grid">
+            <label className="field"><span>Nome *</span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+            <label className="field"><span>E-mail *</span><input required disabled={Boolean(current)} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+            <label className="field"><span>Permissão *</span><select value={form.role} onChange={(e) => applyRole(e.target.value as Role)}><option value="CEO_ADMIN">CEO / Admin</option><option value="OPERATIONS">Operação</option><option value="FINANCE">Financeiro</option></select></label>
+            <label className="field"><span>{current ? "Nova senha (opcional)" : "Senha provisória *"}</span><input required={!current} minLength={6} type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+            <label className="field checkbox full"><input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} /><span>{showPassword ? <EyeOff size={14} /> : <Eye size={14} />} Mostrar senha</span></label>
+            {current && <label className="field checkbox full"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /><span>Usuário ativo</span></label>}
+            <div className="field full permissions-field">
+              <span>Permissões por módulo</span>
+              <p className="field-hint">Ajuste o que esta pessoa pode ver e editar, além do padrão do papel selecionado acima.</p>
+              <div className="permissions-grid">
+                <div className="permissions-row permissions-head"><span /><span>Ver</span><span>Editar</span></div>
+                {ALL_MODULE_KEYS.map((moduleKey) => (
+                  <div className="permissions-row" key={moduleKey}>
+                    <span>{MODULE_LABELS[moduleKey]}</span>
+                    <input type="checkbox" aria-label={`Ver ${MODULE_LABELS[moduleKey]}`} checked={permissions[moduleKey].read} onChange={() => togglePermission(moduleKey, "read")} />
+                    <input type="checkbox" aria-label={`Editar ${MODULE_LABELS[moduleKey]}`} checked={permissions[moduleKey].write} onChange={() => togglePermission(moduleKey, "write")} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {error && <div className="form-error">{error}</div>}
+          <div className="modal-actions">
+            <button type="button" className="ghost" onClick={close}>Cancelar</button>
+            <button className="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar usuário"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function PasswordModal({ close, saved }: { close: () => void; saved: () => void }) { const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmation: "" }); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [showPasswords, setShowPasswords] = useState(false); async function submit(e: React.FormEvent) { e.preventDefault(); if (form.newPassword !== form.confirmation) return setError("A confirmação não coincide com a nova senha."); setBusy(true); setError(""); try { await api("/api/auth/password", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }); saved(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Erro ao alterar senha."); setBusy(false); } } const fieldType = showPasswords ? "text" : "password"; return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><h2>Alterar minha senha</h2><button onClick={close}><X /></button></div><form onSubmit={submit}><div className="form-grid"><label className="field full"><span>Senha atual</span><input required type={fieldType} value={form.currentPassword} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} /></label><label className="field"><span>Nova senha</span><input required minLength={6} type={fieldType} value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} /></label><label className="field"><span>Confirmar nova senha</span><input required minLength={6} type={fieldType} value={form.confirmation} onChange={(e) => setForm({ ...form, confirmation: e.target.value })} /></label><label className="field checkbox full"><input type="checkbox" checked={showPasswords} onChange={(e) => setShowPasswords(e.target.checked)} /><span>{showPasswords ? <EyeOff size={14} /> : <Eye size={14} />} Mostrar senhas</span></label></div>{error && <div className="form-error">{error}</div>}<div className="modal-actions"><button type="button" className="ghost" onClick={close}>Cancelar</button><button className="primary" disabled={busy}>{busy ? "Alterando…" : "Alterar senha"}</button></div></form></div></div>; }

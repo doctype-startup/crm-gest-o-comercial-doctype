@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { assertSameOrigin, apiError, HttpError } from "@/lib/http";
-import { canWrite, isModule } from "@/lib/modules";
+import { isModule } from "@/lib/modules";
 import { deleteRecord, updateRecord } from "@/lib/records";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -8,7 +8,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     assertSameOrigin(request);
     const user = await requireSession();
     const body = await request.json();
-    if (!isModule(body.module) || !canWrite(user.role, body.module)) throw new HttpError(403, "Você não pode alterar este módulo.");
+    if (!isModule(body.module) || !user.modulePermissions.write.includes(body.module)) throw new HttpError(403, "Você não pode alterar este módulo.");
     const expectedUpdatedAt = typeof body.expectedUpdatedAt === "string" ? body.expectedUpdatedAt : undefined;
     const record = await updateRecord(user, (await params).id, body.module, body.data, expectedUpdatedAt);
     if (!record) throw new HttpError(404, "Registro não encontrado.");
@@ -21,7 +21,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     assertSameOrigin(request);
     const user = await requireSession();
     const moduleKey = new URL(request.url).searchParams.get("module") || "";
-    if (!isModule(moduleKey) || !canWrite(user.role, moduleKey)) throw new HttpError(403, "Você não pode alterar este módulo.");
+    if (!isModule(moduleKey) || !user.modulePermissions.write.includes(moduleKey)) throw new HttpError(403, "Você não pode alterar este módulo.");
     if (!(await deleteRecord(user, (await params).id, moduleKey))) throw new HttpError(404, "Registro não encontrado.");
     return Response.json({ ok: true });
   } catch (error) { return apiError(error); }

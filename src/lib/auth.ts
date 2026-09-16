@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
 import { cookies } from "next/headers";
 import { db, ensureSchema, audit } from "./db";
+import { resolveModulePermissions } from "./modules";
 import type { Database, Role, SessionUser } from "./types";
 
 const COOKIE_NAME = "doctype_os_session";
@@ -122,6 +123,11 @@ export async function getSession(): Promise<SessionUser | null> {
     .where("s.token_hash", "=", tokenHash(token))
     .executeTakeFirst();
   if (!row || !row.active || row.expires_at < new Date().toISOString() || row.saas_status === "Suspenso" || row.saas_status === "Cancelado") return null;
+  const overrides = await db
+    .selectFrom("user_module_permissions")
+    .select(["module", "can_read", "can_write"])
+    .where("user_id", "=", row.id)
+    .execute();
   return {
     id: row.id,
     orgId: row.org_id,
@@ -130,6 +136,7 @@ export async function getSession(): Promise<SessionUser | null> {
     role: row.role as Role,
     mustChangePassword: Boolean(row.must_change_password),
     isSaasMaster: Boolean(row.platform_admin_id),
+    modulePermissions: resolveModulePermissions(row.role as Role, overrides),
   };
 }
 

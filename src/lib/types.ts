@@ -126,6 +126,15 @@ export interface SettingsTable {
   updated_at: string;
 }
 
+export interface UserModulePermissionsTable {
+  org_id: string;
+  user_id: string;
+  module: RecordModuleKey;
+  can_read: number;
+  can_write: number;
+  updated_at: string;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   saas_accounts: SaasAccountsTable;
@@ -139,7 +148,10 @@ export interface Database {
   records: RecordsTable;
   audit_logs: AuditLogsTable;
   settings: SettingsTable;
+  user_module_permissions: UserModulePermissionsTable;
 }
+
+export type ModulePermissions = { read: RecordModuleKey[]; write: RecordModuleKey[] };
 
 export interface SessionUser {
   id: string;
@@ -149,6 +161,7 @@ export interface SessionUser {
   role: Role;
   mustChangePassword: boolean;
   isSaasMaster?: boolean;
+  modulePermissions: ModulePermissions;
 }
 
 export interface AppRecord {

@@ -4,20 +4,38 @@ import { passwordSchema } from "@/lib/account-security";
 import { hashPassword, requireSession } from "@/lib/auth";
 import { audit, db } from "@/lib/db";
 import { assertSameOrigin, apiError, HttpError } from "@/lib/http";
+import { resolveModulePermissions } from "@/lib/modules";
+import { saveUserModulePermissions } from "@/lib/user-permissions";
+import type { Role } from "@/lib/types";
+
+const permissionsSchema = z.record(z.string(), z.object({ read: z.boolean(), write: z.boolean() })).optional();
 
 const createSchema = z.object({
   name: z.string().trim().min(2).max(200),
   email: z.string().trim().email().max(200),
   role: z.enum(["CEO_ADMIN", "OPERATIONS", "FINANCE"]),
   password: passwordSchema,
+  permissions: permissionsSchema,
 });
 
 export async function GET() {
   try {
     const user = await requireSession();
     if (user.role !== "CEO_ADMIN") throw new HttpError(403, "Somente o administrador pode gerenciar usuários.");
-    const users = await db.selectFrom("users").select(["id", "name", "email", "role", "active", "must_change_password", "created_at"]).where("org_id", "=", user.orgId).orderBy("name").execute();
-    return Response.json({ users: users.map((x) => ({ ...x, active: Boolean(x.active), mustChangePassword: Boolean(x.must_change_password) })) });
+    const [users, overrides] = await Promise.all([
+      db.selectFrom("users").select(["id", "name", "email", "role", "active", "must_change_password", "created_at"]).where("org_id", "=", user.orgId).orderBy("name").execute(),
+      db.selectFrom("user_module_permissions").select(["user_id", "module", "can_read", "can_write"]).where("org_id", "=", user.orgId).execute(),
+    ]);
+    const overridesByUser = new Map<string, typeof overrides>();
+    for (const row of overrides) overridesByUser.set(row.user_id, [...(overridesByUser.get(row.user_id) ?? []), row]);
+    return Response.json({
+      users: users.map((x) => ({
+        ...x,
+        active: Boolean(x.active),
+        mustChangePassword: Boolean(x.must_change_password),
+        permissions: resolveModulePermissions(x.role as Role, overridesByUser.get(x.id) ?? []),
+      })),
+    });
   } catch (error) { return apiError(error); }
 }
 
@@ -36,7 +54,11 @@ export async function POST(request: Request) {
     if (account && Number(userCount.count) >= account.max_users) throw new HttpError(409, `O plano atual permite até ${account.max_users} usuário${account.max_users === 1 ? "" : "s"}.`);
     const id = randomUUID();
     const now = new Date().toISOString();
-    await db.insertInto("users").values({ id, org_id: session.orgId, name: body.name, email: body.email.toLowerCase(), password_hash: await hashPassword(body.password), role: body.role, active: 1, must_change_password: 1, created_at: now, updated_at: now }).execute();
+    const passwordHash = await hashPassword(body.password);
+    await db.transaction().execute(async (trx) => {
+      await trx.insertInto("users").values({ id, org_id: session.orgId, name: body.name, email: body.email.toLowerCase(), password_hash: passwordHash, role: body.role, active: 1, must_change_password: 1, created_at: now, updated_at: now }).execute();
+      await saveUserModulePermissions(trx, session.orgId, id, body.permissions);
+    });
     await audit(session.orgId, session.id, "CREATE", "user", id, { role: body.role });
     return Response.json({ user: { id, name: body.name, email: body.email.toLowerCase(), role: body.role, active: true } }, { status: 201 });
   } catch (error) { return apiError(error); }
