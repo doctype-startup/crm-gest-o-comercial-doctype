@@ -62,8 +62,8 @@ export function SignupForm({ plans }: { plans: readonly PlanCatalogEntry[] }) {
       <label><span>Nome da empresa</span><div className="input-icon"><Building2 size={20} /><input name="companyName" type="text" placeholder="Nome da sua agência" required minLength={2} maxLength={200} /></div></label>
       <label><span>Seu nome</span><div className="input-icon"><User size={20} /><input name="adminName" type="text" autoComplete="name" placeholder="Seu nome" required minLength={2} maxLength={200} /></div></label>
       <label><span>E-mail</span><div className="input-icon"><Mail size={20} /><input name="adminEmail" type="email" autoComplete="email" placeholder="E-mail" required /></div></label>
-      <label><span>Senha</span><div className="input-icon"><LockKeyhole size={20} /><input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Crie uma senha forte" required minLength={10} /><button type="button" className="password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label="Alternar visibilidade">{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></label>
-      <p className="signup-password-hint">Mínimo de 10 caracteres, com letra, número e símbolo.</p>
+      <label><span>Senha</span><div className="input-icon"><LockKeyhole size={20} /><input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Crie uma senha forte" required minLength={6} /><button type="button" className="password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label="Alternar visibilidade">{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></label>
+      <p className="signup-password-hint">Mínimo de 6 caracteres, com letra, número e símbolo.</p>
 
       {error && <div className="form-error" role="alert">{error}</div>}
       <button className="primary wide" aria-label="Criar minha conta DOC.OS" disabled={loading}><ArrowRight size={21} />{loading ? "Criando conta…" : "Criar minha conta"}</button>

@@ -30,7 +30,7 @@ export const saasAccountSchema = z.object({
 export const createSaasAccountSchema = saasAccountSchema.merge(saasBillingSchema).extend({
   adminName: z.string().trim().min(2).max(200),
   adminEmail: z.string().trim().email().max(200),
-  temporaryPassword: z.string().min(10).max(200),
+  temporaryPassword: z.string().min(6).max(200),
 });
 
 export const updateSaasAccountSchema = saasAccountSchema.merge(saasBillingSchema);

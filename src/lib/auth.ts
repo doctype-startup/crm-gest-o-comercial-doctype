@@ -25,7 +25,7 @@ export async function seedAdmin() {
   const email = process.env.SEED_ADMIN_EMAIL || (isProd ? "" : "admin@doctype.local");
   const password = process.env.SEED_ADMIN_PASSWORD || (isProd ? "" : "Doctype@2026");
   if (!email || !password) throw new Error("Defina SEED_ADMIN_EMAIL e SEED_ADMIN_PASSWORD para criar o primeiro administrador.");
-  if (password.length < 10) throw new Error("SEED_ADMIN_PASSWORD deve ter pelo menos 10 caracteres.");
+  if (password.length < 6) throw new Error("SEED_ADMIN_PASSWORD deve ter pelo menos 6 caracteres.");
 
   const now = new Date().toISOString();
   const orgId = randomUUID();
