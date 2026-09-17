@@ -15,7 +15,7 @@ Sistema operacional de gestão da DOCTYPE, hoje também vendido como produto Saa
 - DOC CRM: Start, Smart, Pro e Legado; MRR, setup, custos, margem e meta.
 - Equipe: integrantes, papéis, responsabilidades e custo.
 - DOC Monitor: alertas calculados a partir de exceções reais da operação.
-- Configurações: meta, usuários, permissões por módulo, senha, exportação e restauração de backup.
+- Configurações: meta, usuários, permissões por módulo, senha, exportação e restauração de backup. Cada usuário mostra o último acesso (derivado dos logins registrados na auditoria) e se tem uma sessão ativa agora.
 - Notificações: central dentro da plataforma (sino no topo) + e-mail (Resend) — hoje dispara quando uma fatura de cliente é paga, para quem tem permissão de ver Financeiro.
 
 O módulo "DOC CRM" (comercial interno de cada empresa cliente) não possui funil de leads, propostas ou follow-up — é só acompanhamento de MRR/margem dos próprios planos vendidos por aquela empresa.

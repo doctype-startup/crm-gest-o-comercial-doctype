@@ -20,7 +20,7 @@ beforeEach(() => {
   global.fetch = vi.fn(async (input) => {
     const url = String(input);
     if (url === "/api/state") return Response.json(initialState);
-    if (url === "/api/users") return Response.json({ users: [{ id: "u1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", active: true, mustChangePassword: false, permissions: resolveModulePermissions("CEO_ADMIN", []) }] });
+    if (url === "/api/users") return Response.json({ users: [{ id: "u1", name: "NAY", email: "nay@doctype.local", role: "CEO_ADMIN", active: true, mustChangePassword: false, permissions: resolveModulePermissions("CEO_ADMIN", []), lastLoginAt: "2026-08-20T12:00:00Z", sessionActive: true }] });
     if (url === "/api/admin/organizations") return Response.json({ organizations: [] });
     if (url === "/api/notifications") return Response.json({ notifications: [], unreadCount: 0 });
     if (url === "/api/billing") return Response.json({ subscription: { organizationName: "Cliente DOCTYPE", plan: "Smart", accountStatus: "Ativo", maxUsers: 5, renewalDate: "2027-08-20", monthlyPrice: 397, billingCycle: "Mensal", billingDay: 10, billingEmail: "financeiro@cliente.local", paymentMethod: "Pix", paymentStatus: "Pendente", nextChargeDate: "2026-09-10", graceUntil: "2026-09-15", automaticBilling: false, stripeConfigured: true, testMode: true } });
