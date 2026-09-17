@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Building2, CalendarDays, Copy, Crown, Eye, EyeOff, FlaskConical, ImageIcon, Link2, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
+import { Building2, CalendarDays, Clock, Copy, Crown, Eye, EyeOff, FlaskConical, ImageIcon, Link2, Pencil, Plus, RefreshCw, Search, ShieldCheck, Upload, Users, X } from "lucide-react";
 import { DateField } from "@/components/date-field";
 import { slugify } from "@/lib/saas";
 
@@ -10,6 +10,7 @@ type SaasOrganization = {
   id: string; name: string; slug: string; logoDataUrl: string; plan: "Start" | "Smart" | "Pro" | "Enterprise";
   status: "Teste" | "Ativo" | "Suspenso" | "Cancelado"; maxUsers: number; renewalDate: string; notes: string; isTestClient: boolean;
   createdAt: string; updatedAt: string; userCount: number; activeUserCount: number; recordCount: number; adminName: string; adminEmail: string;
+  adminLastLoginAt: string | null; adminSessionActive: boolean;
   monthlyPrice: number; billingCycle: "Mensal" | "Trimestral" | "Anual"; billingDay: number; billingEmail: string;
   paymentMethod: "Pix" | "Boleto" | "Cartão" | "Transferência"; paymentStatus: "Em dia" | "Pendente" | "Atrasado" | "Isento";
   nextChargeDate: string; graceUntil: string;
@@ -25,6 +26,18 @@ type Form = {
 const blank: Form = { name: "", slug: "", logoDataUrl: "", plan: "Start", status: "Teste", maxUsers: 3, renewalDate: "", notes: "", isTestClient: false, adminName: "", adminEmail: "", temporaryPassword: "", monthlyPrice: 0, billingCycle: "Mensal", billingDay: 10, billingEmail: "", paymentMethod: "Pix", paymentStatus: "Pendente", nextChargeDate: "", graceUntil: "" };
 const dateLabel = (value: string) => value ? new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR") : "Não definida";
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dateTimeLabel = (value: string | null) => value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+function relativeTime(value: string | null) {
+  if (!value) return "Nunca acessou";
+  const minutes = Math.round((Date.now() - new Date(value).getTime()) / 60_000);
+  if (minutes < 1) return "Agora mesmo";
+  if (minutes < 60) return `Há ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Há ${hours}h`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `Há ${days} dia${days === 1 ? "" : "s"}`;
+  return dateLabel(value.slice(0, 10));
+}
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -85,6 +98,14 @@ export function SaasAdmin({ notify }: { notify: (message: string) => void }) {
 
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      request<{ organizations: SaasOrganization[] }>("/api/admin/organizations").then(({ organizations: next }) => setOrganizations(next)).catch(() => {});
+    }, 20_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const visible = useMemo(() => organizations.filter((organization) => JSON.stringify(organization).toLowerCase().includes(search.toLowerCase())), [organizations, search]);
   const active = organizations.filter((organization) => organization.status === "Ativo").length;
   const trials = organizations.filter((organization) => organization.status === "Teste").length;
@@ -115,7 +136,7 @@ function OrganizationCard({ organization, edit, notify }: { organization: SaasOr
     <div className="saas-card-head"><div className="saas-logo">{organization.logoDataUrl ? <Image src={organization.logoDataUrl} alt={`Logo de ${organization.name}`} width={66} height={66} unoptimized /> : <span>{initials}</span>}</div><div><span className={`saas-status ${organization.status.toLowerCase()}`}>{organization.status}</span>{organization.isTestClient && <span className="saas-status test-client"><FlaskConical size={12} /> Teste manual</span>}<h3>{organization.name}</h3><p>/{organization.slug}</p></div><div className="saas-card-actions"><button aria-label={`Copiar acesso de ${organization.name}`} onClick={() => void copyAccess()}><Link2 /></button><button aria-label={`Editar ${organization.name}`} onClick={edit}><Pencil /></button></div></div>
     <div className="saas-plan"><span>Plano<strong>{organization.plan} · {organization.monthlyPrice ? money(organization.monthlyPrice) : "Valor a definir"}</strong></span><span>Cobrança<strong className={`billing-${organization.paymentStatus.toLowerCase().replaceAll(" ", "-")}`}>{organization.paymentStatus} · {dateLabel(organization.nextChargeDate)}</strong></span></div>
     <div className="saas-seats"><div><span>Usuários</span><b>{organization.userCount} de {organization.maxUsers}</b></div><div><i style={{ width: `${usage}%` }} /></div></div>
-    <div className="saas-meta"><p><Users /><span><b>Administrador</b>{organization.adminName || "Não definido"}</span></p><p><ShieldCheck /><span><b>Acesso</b>{organization.adminEmail || "Não definido"}</span></p><p><Building2 /><span><b>Registros</b>{organization.recordCount}</span></p><p><CalendarDays /><span><b>Criada em</b>{new Date(organization.createdAt).toLocaleDateString("pt-BR")}</span></p></div>
+    <div className="saas-meta"><p><Users /><span><b>Administrador</b>{organization.adminName || "Não definido"}</span></p><p><ShieldCheck /><span><b>Acesso</b>{organization.adminEmail || "Não definido"}</span></p><p><Building2 /><span><b>Registros</b>{organization.recordCount}</span></p><p><CalendarDays /><span><b>Criada em</b>{new Date(organization.createdAt).toLocaleDateString("pt-BR")}</span></p><p><Clock /><span className={organization.adminSessionActive ? "saas-access-live" : undefined} title={dateTimeLabel(organization.adminLastLoginAt)}><b>Último acesso</b>{organization.adminSessionActive ? "Sessão ativa" : relativeTime(organization.adminLastLoginAt)}</span></p></div>
   </article>;
 }
 
