@@ -22,18 +22,24 @@ export async function GET() {
   try {
     const user = await requireSession();
     if (user.role !== "CEO_ADMIN") throw new HttpError(403, "Somente o administrador pode gerenciar usuários.");
-    const [users, overrides] = await Promise.all([
+    const [users, overrides, lastLogins, activeSessions] = await Promise.all([
       db.selectFrom("users").select(["id", "name", "email", "role", "active", "must_change_password", "created_at"]).where("org_id", "=", user.orgId).orderBy("name").execute(),
       db.selectFrom("user_module_permissions").select(["user_id", "module", "can_read", "can_write"]).where("org_id", "=", user.orgId).execute(),
+      db.selectFrom("audit_logs").select(["user_id", (eb) => eb.fn.max("created_at").as("last_login_at")]).where("org_id", "=", user.orgId).where("action", "=", "LOGIN").groupBy("user_id").execute(),
+      db.selectFrom("sessions as s").innerJoin("users as u", "u.id", "s.user_id").select("s.user_id").where("u.org_id", "=", user.orgId).where("s.expires_at", ">", new Date().toISOString()).execute(),
     ]);
     const overridesByUser = new Map<string, typeof overrides>();
     for (const row of overrides) overridesByUser.set(row.user_id, [...(overridesByUser.get(row.user_id) ?? []), row]);
+    const lastLoginByUser = new Map(lastLogins.map((row) => [row.user_id, row.last_login_at]));
+    const activeSessionUsers = new Set(activeSessions.map((row) => row.user_id));
     return Response.json({
       users: users.map((x) => ({
         ...x,
         active: Boolean(x.active),
         mustChangePassword: Boolean(x.must_change_password),
         permissions: resolveModulePermissions(x.role as Role, overridesByUser.get(x.id) ?? []),
+        lastLoginAt: lastLoginByUser.get(x.id) ?? null,
+        sessionActive: activeSessionUsers.has(x.id),
       })),
     });
   } catch (error) { return apiError(error); }
