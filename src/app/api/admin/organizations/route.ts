@@ -24,13 +24,18 @@ export async function GET() {
         db.selectFrom("users").select(({ fn }) => fn.count<number>("id").as("count")).where("org_id", "=", row.id).executeTakeFirstOrThrow(),
         db.selectFrom("users").select(({ fn }) => fn.count<number>("id").as("count")).where("org_id", "=", row.id).where("active", "=", 1).executeTakeFirstOrThrow(),
         db.selectFrom("records").select(({ fn }) => fn.count<number>("id").as("count")).where("org_id", "=", row.id).executeTakeFirstOrThrow(),
-        db.selectFrom("users").select(["name", "email"]).where("org_id", "=", row.id).where("role", "=", "CEO_ADMIN").orderBy("created_at").executeTakeFirst(),
+        db.selectFrom("users").select(["id", "name", "email"]).where("org_id", "=", row.id).where("role", "=", "CEO_ADMIN").orderBy("created_at").executeTakeFirst(),
       ]);
+      const [lastLogin, activeSession] = admin ? await Promise.all([
+        db.selectFrom("audit_logs").select(({ fn }) => fn.max("created_at").as("last_login_at")).where("user_id", "=", admin.id).where("action", "=", "LOGIN").executeTakeFirst(),
+        db.selectFrom("sessions").select("id").where("user_id", "=", admin.id).where("expires_at", ">", new Date().toISOString()).executeTakeFirst(),
+      ]) : [null, null];
       return {
         id: row.id, name: row.name, slug: row.slug, logoDataUrl: row.logo_data_url, plan: row.plan, status: row.status,
         maxUsers: row.max_users, renewalDate: row.renewal_date, notes: row.notes, isTestClient: Boolean(row.is_test_client), createdAt: row.created_at, updatedAt: row.updated_at,
         userCount: Number(users.count), activeUserCount: Number(activeUsers.count), recordCount: Number(records.count),
         adminName: admin?.name || "", adminEmail: admin?.email || "",
+        adminLastLoginAt: lastLogin?.last_login_at ?? null, adminSessionActive: Boolean(activeSession),
         monthlyPrice: Number(row.monthly_price || 0), billingCycle: row.billing_cycle || "Mensal", billingDay: Number(row.billing_day || 10),
         billingEmail: row.billing_email || admin?.email || "", paymentMethod: row.payment_method || "Pix", paymentStatus: row.payment_status || "Pendente",
         nextChargeDate: row.next_charge_date || "", graceUntil: row.grace_until || "",

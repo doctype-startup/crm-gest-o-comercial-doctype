@@ -14,3 +14,5 @@
 .saas-success pre{margin:0 0 18px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:#f8faff;color:var(--graph);font-family:inherit;font-size:12px;line-height:1.7;text-align:left;white-space:pre-wrap;word-break:break-word}
 .saas-success .modal-actions{justify-content:center}
 @media(max-width:680px){.saas-success{padding:22px 18px 26px}.saas-success .modal-actions{flex-direction:column-reverse}.saas-success .modal-actions button{width:100%}}
+.saas-access-live{color:var(--green)!important}
+.saas-access-live:before{content:"";display:inline-block;width:6px;height:6px;margin-right:4px;border-radius:50%;background:var(--green)}
