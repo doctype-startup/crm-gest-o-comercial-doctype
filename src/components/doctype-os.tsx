@@ -309,7 +309,7 @@ export function DoctypeOS({ initialState }: { initialState: StatePayload }) {
               {view === "renewals" && <Renewals clients={clients} generatedAt={state.generatedAt} onEdit={(record) => setModal({ module: "clients", record })} />}
               {view === "crm" && <CrmView records={filtered("crm")} search={search} setSearch={setSearch} clientName={clientName} goal={number(state.settings.crmGoal)} onAdd={() => setModal({ module: "crm" })} onEdit={(record) => setModal({ module: "crm", record })} onDelete={(record) => setConfirmDelete({ module: "crm", record })} />}
               {view === "team" && <ModuleView module="team" records={filtered("team")} search={search} setSearch={setSearch} clientName={clientName} onAdd={() => setModal({ module: "team" })} onEdit={(record) => setModal({ module: "team", record })} onDelete={(record) => setConfirmDelete({ module: "team", record })} />}
-              {view === "monitor" && <Monitor alerts={state.alerts} openView={openView} />}
+              {view === "monitor" && <Monitor alerts={state.alerts} openView={openView} user={user} />}
               {view === "settings" && <SettingsView goal={number(state.settings.crmGoal)} taxRate={number(state.settings.taxRate)} onSaved={() => refresh(true)} downloadBackup={downloadBackup} importRef={importRef} restoreBackup={restoreBackup} user={user} notify={notify} />}
             </>
           )}
@@ -523,7 +523,24 @@ function CrmView(props: { records: AppRecord[]; search: string; setSearch: (v: s
   return <div className="stack"><div className="kpi-grid finance-kpis"><Kpi label="MRR DOC CRM" value={money(mrr)} meta={`${active.length} assinaturas ativas`} /><Kpi label="Custos recorrentes" value={money(costs)} meta="Plataforma + canais" /><Kpi label="Margem gerencial" value={money(mrr - costs)} meta={mrr ? `${Math.round(((mrr - costs) / mrr) * 100)}% de margem` : "Sem receita"} /></div><section className="card goal-card"><div><span>Meta de MRR</span><strong>{money(props.goal)}</strong></div><div className="progress"><i style={{ width: `${progress}%` }} /></div><b>{Math.round(progress)}%</b></section><ModuleView module="crm" records={props.records} search={props.search} setSearch={props.setSearch} clientName={props.clientName} onAdd={props.onAdd} onEdit={props.onEdit} onDelete={props.onDelete} /></div>;
 }
 
-function Monitor({ alerts, openView }: { alerts: Alert[]; openView: (v: View) => void }) { return <div className="monitor-layout"><DocCard alerts={alerts} openView={openView} large /><section className="card"><SectionTitle title="Como o Guardião atua" subtitle="Exceções reais, priorizadas por impacto" /><div className="monitor-principles"><div><ShieldCheck /><strong>Observa</strong><span>Analisa vencimentos, prazos, segurança e saúde dos clientes.</span></div><div><AlertTriangle /><strong>Orienta</strong><span>Mostra o que exige decisão e leva diretamente ao módulo responsável.</span></div><div><CheckSquare /><strong>Registra</strong><span>Todas as alterações importantes ficam no log de auditoria.</span></div></div></section></div>; }
+function Monitor({ alerts, openView, user }: { alerts: Alert[]; openView: (v: View) => void; user: SessionUser }) { return <div className="monitor-layout"><DocCard alerts={alerts} openView={openView} large /><section className="card"><SectionTitle title="Como o Guardião atua" subtitle="Exceções reais, priorizadas por impacto" /><div className="monitor-principles"><div><ShieldCheck /><strong>Observa</strong><span>Analisa vencimentos, prazos, segurança e saúde dos clientes.</span></div><div><AlertTriangle /><strong>Orienta</strong><span>Mostra o que exige decisão e leva diretamente ao módulo responsável.</span></div><div><CheckSquare /><strong>Registra</strong><span>Todas as alterações importantes ficam no log de auditoria.</span></div></div></section>{user.role === "CEO_ADMIN" && <TeamAccessCard />}</div>; }
+
+function TeamAccessCard() {
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    function load() {
+      api<{ users: ManagedUser[] }>("/api/users").then((payload) => { if (active) setUsers(payload.users); }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Erro ao carregar acessos."); });
+    }
+    load();
+    const interval = setInterval(load, 20_000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
+
+  return <section className="card full-card"><SectionTitle title="Acessos da equipe" subtitle="Tempo real — atualiza automaticamente a cada 20s" />{error && <div className="form-error">{error}</div>}<CompactTable headers={["Nome", "Permissão", "Status", "Último acesso"]} rows={users.map((managed) => [managed.name, managed.role === "CEO_ADMIN" ? "CEO / Admin" : managed.role === "FINANCE" ? "Financeiro" : "Operação", <Badge key={`ma-${managed.id}`} value={managed.active ? "Ativo" : "Inativo"} />, <span key={`la-${managed.id}`} className={managed.sessionActive ? "saas-access-live" : undefined} title={dateTimeLabel(managed.lastLoginAt)}>{managed.sessionActive ? "Sessão ativa" : relativeTime(managed.lastLoginAt)}</span>])} /></section>;
+}
 
 function DocCard({ alerts, openView, large }: { alerts: Alert[]; openView: (v: View) => void; large?: boolean }) { return <section className={`doc-card ${large ? "large" : ""}`}><Image src="/assets/doc-mascote.svg" alt="DOC Monitor" width={large ? 190 : 125} height={large ? 190 : 125} /><div className="doc-copy"><span className="eyebrow">DOC MONITOR</span><h2>{alerts.length ? `${alerts.length} ponto${alerts.length === 1 ? "" : "s"} pedem atenção.` : "A operação está protegida."}</h2><p>O Guardião observa exceções para a equipe agir antes que virem problemas.</p><div className="alert-list">{alerts.length ? alerts.map((alert) => <button key={alert.id} onClick={() => openView((alert.module === "finance" ? "finance" : alert.module) as View)}><i className={alert.severity} /><span><strong>{alert.title}</strong><small>{alert.detail}</small></span><ChevronRight /></button>) : <div className="all-clear"><ShieldCheck /> Sem alertas críticos neste momento.</div>}</div></div></section>; }
 
