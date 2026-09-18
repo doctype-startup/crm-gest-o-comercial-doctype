@@ -1,6 +1,35 @@
 # DOC.OS — Handoff técnico e continuidade
 
-Atualizado em: 15/09/2026
+Atualizado em: 18/09/2026
+
+## Exclusão em cascata via coluna client_id (18/09/2026)
+
+Um dos itens pendentes de uma revisão fullstack anterior ("mover filtros usados na
+exclusão em cascata e no cálculo de métricas para dentro do banco") era que
+`deleteRecord` (ao apagar um cliente) carregava **todos** os registros de
+accesses/invoices/tasks/crm/quotes/contracts da organização e fazia `JSON.parse` +
+filtro em JS pra achar os que pertenciam ao cliente excluído — O(n) na organização
+inteira a cada exclusão de cliente, mesmo pra apagar 1 registro relacionado.
+
+Adicionada coluna `client_id` em `records` (migração idempotente via `alterTable`,
+mesmo padrão de `is_test_client`), espelhando `data.clientId` só para os módulos que
+têm esse campo (`MODULES_WITH_CLIENT_ID` em `src/lib/db.ts`). `createRecord`,
+`updateRecord` (`src/lib/records.ts`) e a restauração de backup (`POST
+/api/backup`) passam a gravar essa coluna via `clientIdOf(module, data)`; a exclusão em
+cascata virou um único `DELETE ... WHERE org_id = ? AND module IN (...) AND client_id =
+?`, sem carregar nada em memória. Índice `records_org_client (org_id, client_id)`
+criado para isso.
+
+Registros gravados antes desta coluna existir são preenchidos por
+`backfillRecordsClientId()` (roda a cada start do processo; busca só linhas com
+`client_id = ''`, então vira barato depois da primeira execução em cada ambiente —
+exceto para o próprio subconjunto de registros que legitimamente não tem `clientId`,
+ex.: tarefas avulsas em `tasks`, que ficam sempre com `client_id = ''` e são
+re-verificadas a cada start, sem custo relevante dado o volume esperado).
+
+**Não feito nesta rodada** (ver "Pendente" abaixo, mantido para o próximo passo):
+paginação em `/api/records`/backup — hoje ainda retornam a lista inteira da
+organização; e teste de carga automatizado.
 
 ## Datas em pt-BR e cliente de teste manual (15/09/2026)
 
@@ -176,8 +205,10 @@ variáveis de ambiente não são configuradas:
   URL fica no registro. Sem o token, nada muda.
 
 Pendente (não feito nesta sessão, ver revisão fullstack completa para detalhes):
-paginação em `/api/records` e no backup; mover filtros usados na exclusão em cascata
-e no cálculo de métricas para dentro do banco; teste de carga automatizado.
+paginação em `/api/records` e no backup; teste de carga automatizado. (O filtro da
+exclusão em cascata foi movido para o banco em 18/09/2026, ver seção acima — o de
+cálculo de métricas segue pendente, mas hoje nenhum cálculo de métrica filtra por
+clientId da mesma forma.)
 
 ## Repositório e produção
 - Repositório oficial: `doctype-startup/crm-gest-o-comercial-doctype`

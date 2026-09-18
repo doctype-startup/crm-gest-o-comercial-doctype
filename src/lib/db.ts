@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { Kysely, PostgresDialect, SqliteDialect, sql } from "kysely";
 import { Pool } from "pg";
-import type { Database } from "./types";
+import type { Database, RecordModuleKey } from "./types";
 
 type GlobalDb = typeof globalThis & {
   __doctypeDb?: Kysely<Database>;
@@ -63,6 +63,29 @@ function createDatabase() {
 
 export const db = globalDb.__doctypeDb ?? createDatabase();
 if (process.env.NODE_ENV !== "production") globalDb.__doctypeDb = db;
+
+export const MODULES_WITH_CLIENT_ID: readonly RecordModuleKey[] = ["accesses", "invoices", "tasks", "crm", "quotes", "contracts"];
+
+// Preenche client_id para registros gravados antes desta coluna existir. Roda a cada
+// start (ensureSchema/createSchema são cacheados por processo), mas só busca linhas
+// ainda não preenchidas (client_id = ''), então vira um no-op barato depois da primeira
+// execução bem-sucedida em cada ambiente.
+export async function backfillRecordsClientId() {
+  const pending = await db
+    .selectFrom("records")
+    .select(["id", "data"])
+    .where("client_id", "=", "")
+    .where("module", "in", MODULES_WITH_CLIENT_ID)
+    .execute();
+  for (const row of pending) {
+    let clientId = "";
+    try {
+      const parsed = JSON.parse(row.data);
+      if (typeof parsed.clientId === "string") clientId = parsed.clientId;
+    } catch { /* data corrompido/vazio: deixa client_id em branco */ }
+    if (clientId) await db.updateTable("records").set({ client_id: clientId }).where("id", "=", row.id).execute();
+  }
+}
 
 async function createSchema() {
   await db.schema
@@ -204,6 +227,27 @@ async function createSchema() {
     .on("records")
     .columns(["org_id", "module"])
     .execute();
+
+  // records já existia antes deste campo em produção — createTable().ifNotExists() não
+  // adiciona coluna a uma tabela que já existe, por isso o alterTable separado aqui.
+  // client_id espelha data.clientId (quando o módulo tem esse campo) para permitir
+  // filtrar no banco em vez de carregar e fazer JSON.parse de todos os registros em JS
+  // (usado hoje na exclusão em cascata de clients — ver deleteRecord em records.ts).
+  try {
+    await db.schema.alterTable("records").addColumn("client_id", "varchar(36)", (c) => c.notNull().defaultTo("")).execute();
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (!message.includes("duplicate column") && !message.includes("already exists")) throw error;
+  }
+
+  await db.schema
+    .createIndex("records_org_client")
+    .ifNotExists()
+    .on("records")
+    .columns(["org_id", "client_id"])
+    .execute();
+
+  await backfillRecordsClientId();
 
   if (databaseEngine() === "postgres") {
     await sql`
