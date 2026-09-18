@@ -46,6 +46,36 @@ describe("persistência multiusuário", () => {
     expect(audit.map((x) => x.action)).toEqual(["CREATE", "UPDATE", "DELETE"]);
   });
 
+  it("exclui em cascata os registros do cliente ao removê-lo, e preserva os de outro cliente", async () => {
+    const admin = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
+    const user: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false, modulePermissions: adminPermissions };
+
+    const clientA = await recordsModule.createRecord(user, "clients", { name: "Cliente A Cascata", services: "CRM", monthly: 1000, dueDay: 10, status: "Ativo" });
+    const clientB = await recordsModule.createRecord(user, "clients", { name: "Cliente B Cascata", services: "CRM", monthly: 1000, dueDay: 10, status: "Ativo" });
+    await recordsModule.createRecord(user, "accesses", { clientId: clientA.id, platform: "Instagram", login: "a" });
+    await recordsModule.createRecord(user, "invoices", { clientId: clientA.id, description: "Fatura A", value: 100, due: "2026-10-10" });
+    const accessB = await recordsModule.createRecord(user, "accesses", { clientId: clientB.id, platform: "Instagram", login: "b" });
+
+    expect(await recordsModule.deleteRecord(user, clientA.id, "clients")).toBe(true);
+    expect(await recordsModule.listRecords(user.orgId, "accesses")).toEqual([expect.objectContaining({ id: accessB.id })]);
+    expect(await recordsModule.listRecords(user.orgId, "invoices")).toHaveLength(0);
+
+    const audit = await dbModule.db.selectFrom("audit_logs").select("metadata").where("entity_id", "=", clientA.id).where("action", "=", "DELETE").executeTakeFirstOrThrow();
+    expect(JSON.parse(audit.metadata).cascaded).toBe(2);
+  });
+
+  it("preenche client_id de registros antigos (gravados antes da coluna existir)", async () => {
+    const admin = await dbModule.db.selectFrom("users").selectAll().where("email", "=", "admin-test@doctype.local").executeTakeFirstOrThrow();
+    const legacyId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await dbModule.db.insertInto("records").values({ id: legacyId, org_id: admin.org_id, module: "accesses", data: JSON.stringify({ clientId: "cliente-legado", platform: "Instagram" }), client_id: "", created_by: admin.id, created_at: now, updated_at: now }).execute();
+
+    await dbModule.backfillRecordsClientId();
+
+    const row = await dbModule.db.selectFrom("records").select("client_id").where("id", "=", legacyId).executeTakeFirstOrThrow();
+    expect(row.client_id).toBe("cliente-legado");
+  });
+
   it("isola dados entre organizações", async () => {
     const admin = await dbModule.db.selectFrom("users").selectAll().executeTakeFirstOrThrow();
     const user: SessionUser = { id: admin.id, orgId: admin.org_id, name: admin.name, email: admin.email, role: "CEO_ADMIN", mustChangePassword: false, modulePermissions: adminPermissions };

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { db, audit } from "./db";
+import { db, audit, MODULES_WITH_CLIENT_ID } from "./db";
 import { externalizeDataUrl } from "./blob-storage";
 import { moduleSchemas } from "./modules";
 import { invalidateState } from "./state-cache";
@@ -38,12 +38,20 @@ async function externalizeFiles(orgId: string, module: RecordModuleKey, data: Re
   return data;
 }
 
+// Espelha data.clientId (quando o módulo tem esse campo) na coluna client_id, para
+// permitir filtros no banco em vez de carregar e fazer JSON.parse de todos os
+// registros em JS — ver MODULES_WITH_CLIENT_ID e a exclusão em cascata abaixo.
+export function clientIdOf(module: RecordModuleKey, data: Record<string, unknown>): string {
+  if (!MODULES_WITH_CLIENT_ID.includes(module)) return "";
+  return typeof data.clientId === "string" ? data.clientId : "";
+}
+
 export async function createRecord(user: SessionUser, module: RecordModuleKey, input: unknown) {
   const parsed = moduleSchemas[module].parse(input);
   const data = await externalizeFiles(user.orgId, module, parsed);
   const id = randomUUID();
   const now = new Date().toISOString();
-  await db.insertInto("records").values({ id, org_id: user.orgId, module, data: JSON.stringify(data), created_by: user.id, created_at: now, updated_at: now }).execute();
+  await db.insertInto("records").values({ id, org_id: user.orgId, module, data: JSON.stringify(data), client_id: clientIdOf(module, data), created_by: user.id, created_at: now, updated_at: now }).execute();
   await audit(user.orgId, user.id, "CREATE", module, id, { fields: Object.keys(data) });
   invalidateState(user.orgId);
   return { id, module, data, createdAt: now, updatedAt: now } satisfies AppRecord;
@@ -64,7 +72,7 @@ export async function updateRecord(user: SessionUser, id: string, module: Record
   const parsed = moduleSchemas[module].parse(input);
   const data = await externalizeFiles(user.orgId, module, parsed);
   const now = new Date().toISOString();
-  await db.updateTable("records").set({ data: JSON.stringify(data), updated_at: now }).where("id", "=", id).where("org_id", "=", user.orgId).execute();
+  await db.updateTable("records").set({ data: JSON.stringify(data), client_id: clientIdOf(module, data), updated_at: now }).where("id", "=", id).where("org_id", "=", user.orgId).execute();
   await audit(user.orgId, user.id, "UPDATE", module, id, { fields: Object.keys(data) });
   invalidateState(user.orgId);
   return { id, module, data, createdAt: current.created_at, updatedAt: now } satisfies AppRecord;
@@ -74,9 +82,8 @@ export async function deleteRecord(user: SessionUser, id: string, module: Record
   let cascaded = 0;
   const deleted = await db.transaction().execute(async (trx) => {
     if (module === "clients") {
-      const related = await trx.selectFrom("records").select(["id", "data"]).where("org_id", "=", user.orgId).where("module", "in", ["accesses", "invoices", "tasks", "crm", "quotes", "contracts"]).execute();
-      const ids = related.filter((row) => JSON.parse(row.data).clientId === id).map((row) => row.id);
-      if (ids.length) { await trx.deleteFrom("records").where("id", "in", ids).execute(); cascaded = ids.length; }
+      const result = await trx.deleteFrom("records").where("org_id", "=", user.orgId).where("module", "in", MODULES_WITH_CLIENT_ID).where("client_id", "=", id).executeTakeFirst();
+      cascaded = Number(result.numDeletedRows);
     }
     const result = await trx.deleteFrom("records").where("id", "=", id).where("org_id", "=", user.orgId).where("module", "=", module).executeTakeFirst();
     return Number(result.numDeletedRows) > 0;

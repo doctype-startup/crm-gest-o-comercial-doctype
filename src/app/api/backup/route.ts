@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { audit, db } from "@/lib/db";
 import { assertSameOrigin, apiError, HttpError } from "@/lib/http";
 import { isModule, moduleSchemas } from "@/lib/modules";
+import { clientIdOf } from "@/lib/records";
 import { invalidateState } from "@/lib/state-cache";
 
 const backupSchema = z.object({
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     await db.transaction().execute(async (trx) => {
       await trx.deleteFrom("records").where("org_id", "=", user.orgId).execute();
-      for (const record of parsed) await trx.insertInto("records").values({ id: randomUUID(), org_id: user.orgId, module: record.module, data: JSON.stringify(record.data), created_by: user.id, created_at: now, updated_at: now }).execute();
+      for (const record of parsed) await trx.insertInto("records").values({ id: randomUUID(), org_id: user.orgId, module: record.module, data: JSON.stringify(record.data), client_id: clientIdOf(record.module, record.data), created_by: user.id, created_at: now, updated_at: now }).execute();
       for (const [key, value] of Object.entries(backup.settings)) {
         const exists = await trx.selectFrom("settings").select("key").where("org_id", "=", user.orgId).where("key", "=", key).executeTakeFirst();
         if (exists) await trx.updateTable("settings").set({ value: JSON.stringify(value), updated_at: now }).where("org_id", "=", user.orgId).where("key", "=", key).execute();

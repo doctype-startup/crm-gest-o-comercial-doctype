@@ -103,6 +103,7 @@ export interface RecordsTable {
   org_id: string;
   module: RecordModuleKey;
   data: string;
+  client_id: string;
   created_by: string;
   created_at: string;
   updated_at: string;
